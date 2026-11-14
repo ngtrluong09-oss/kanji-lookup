@@ -14,6 +14,7 @@
   <div class="brand"><span class="logo" lang="ja">漢</span><span>Kanji Lookup</span></div>
   <nav class="tabs" role="tablist">
     <button class="tab active" data-view="search" role="tab">Search</button>
+    <button class="tab" data-view="ask" role="tab">Ask</button>
     <button class="tab" data-view="history" role="tab">History</button>
     <button class="tab" data-view="favorites" role="tab">Favorites</button>
   </nav>
@@ -27,6 +28,20 @@
         placeholder="Kanji, English, romaji, kana, pinyin or Hán Việt…" aria-label="Search">
       <p id="count" class="muted small"></p>
       <ul id="results" class="list"></ul>
+    </section>
+
+    <section id="view-ask" class="view hidden">
+      <div class="row-between">
+        <h2>Ask</h2>
+        <button id="clearAsk" class="btn danger" type="button">Clear</button>
+      </div>
+      <p class="muted small">Plain English, or mix in kanji, kana, romaji, pinyin or Hán Việt. Answers use this dictionary only.</p>
+      <div id="askThread" class="ask-thread" aria-live="polite"></div>
+      <form id="askForm" class="ask-form" autocomplete="off">
+        <input id="askQ" type="text" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false"
+          placeholder="e.g. fancy word for think" aria-label="Ask a question">
+        <button class="btn primary" type="submit">Ask</button>
+      </form>
     </section>
 
     <section id="view-history" class="view hidden">
@@ -64,7 +79,9 @@
 <footer class="foot small muted">
   Data: <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">KANJIDIC2</a> and
   <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">JMdict</a> © EDRDG (CC BY-SA 4.0);
-  stroke order from <a href="https://kanjivg.tagaini.net">KanjiVG</a> © Ulrich Apel (CC BY-SA 3.0). See README for details.
+  stroke order from <a href="https://kanjivg.tagaini.net">KanjiVG</a> © Ulrich Apel (CC BY-SA 3.0);
+  example sentences from the <a href="https://tatoeba.org/en/">Tanaka corpus</a> (Tatoeba / JMdict examples) © Tanaka Yasuhito and Tatoeba contributors,
+  <a href="https://creativecommons.org/licenses/by/2.0/fr/deed.en">CC BY 2.0 FR</a>. See README for details.
 </footer>
 <script src="app.js"></script>
 </body>

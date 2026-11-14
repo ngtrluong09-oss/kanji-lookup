@@ -9,6 +9,12 @@ A small static website for looking up the **2,136 Jōyō kanji**. For each kanji
 
 Search by kanji (paste one or several), English meaning, romaji (`gaku`), kana (`まなぶ`, `ガク`), pinyin (`xue`) or Hán Việt (`hoc`, accents optional).
 
+The **Ask** tab answers plain-English questions from the same dictionary (“fancy word for think”, “kanji related to water”, “reading sui”, “what does 語 mean”). It does not call a server or a language model. The thread is saved in this browser under `kanjiLookup.ask.v1` (separate from history and favorites) and can be cleared.
+
+Speaker buttons next to each on'yomi, each kun'yomi, the English meaning, and each example sentence use the browser’s own speech synthesis (`ja-JP` when a Japanese voice is installed, `en` for the meaning). They are omitted if the browser has no speech API.
+
+Example sentences (1–2 per kanji, with furigana) load when you open a kanji or an Ask card (`data/ex/<codepoint>.json`), so they are not part of the first download. Most come from the Tanaka corpus; a few rare kanji have a short draft tagged “generated”.
+
 Your **history** (auto-saved, grouped by day, up to 500 kanji), **favorites** (★) and **custom favorite groups** (create, rename, delete; a kanji can be in several groups) are stored in your browser's `localStorage` under the key `kanjiLookup.v1`. Use **Export JSON** / **Import JSON** to back them up or move them to another browser (import can replace or merge).
 
 Plain HTML, CSS and vanilla JavaScript. No build step, no frameworks, no tracking. Light and dark themes, works on phones.
@@ -33,6 +39,7 @@ Push this folder to the root of a repository, then in **Settings → Pages** cho
 | `index.html`, `style.css`, `app.js` | The app |
 | `data/kanji.json` | 2,136 entries: meanings, readings, pinyin, Hán Việt, radical, components, grade, old JLPT level, frequency, example words |
 | `data/strokes/<hex>.json` | KanjiVG stroke paths and stroke types, one file per kanji (file name = Unicode code point in 5-digit hex) |
+| `data/ex/<hex>.json` | 1–2 example sentences, loaded on demand. `t` = Tanaka corpus, `g` = generated draft |
 
 ## Data notes and gaps
 
@@ -50,4 +57,5 @@ Push this folder to the root of a repository, then in **Settings → Pages** cho
 
 - **KANJIDIC2** and **JMdict** — © Electronic Dictionary Research and Development Group (EDRDG), used under the [EDRDG licence](https://www.edrdg.org/edrdg/licence.html), Creative Commons Attribution-ShareAlike 4.0. <https://www.edrdg.org/wiki/index.php/KANJIDIC_Project>, <https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project>
 - **KanjiVG** — © Ulrich Apel and contributors, [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). <https://kanjivg.tagaini.net>
+- **Tanaka corpus / Tatoeba example sentences** — © Tanaka Yasuhito and Tatoeba contributors, [CC BY 2.0 FR](https://creativecommons.org/licenses/by/2.0/fr/). <https://tatoeba.org>. The indexed B-line supplies furigana; where a word has no B-line reading, the reading is taken from the JMdict headword.
 - Data files in `data/` are derived from the above (fields selected, pinyin converted to tone marks, Hán Việt lower-cased) and are shared under the same licences. See `LICENSE`.
