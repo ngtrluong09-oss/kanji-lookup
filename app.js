@@ -574,7 +574,7 @@
     if (kokuji) facts.push('<span class="fact">Kokuji (made in Japan)</span>');
     var comps = d.c.length ? d.c.map(function (c) { return '<span class="comp" lang="ja"' + (BY[c] ? ' data-k="' + c + '"' : '') + '>' + esc(c) + '</span>'; }).join('') : '<span class="muted">single component</span>';
     var html = '<div class="hero"><div class="big" lang="ja">' + k + '</div><div class="hero-main">' +
-      '<div class="meanings">' + esc(meanings.join(', ')) + speakBtn('en', meanings.join(', '), 'Play meaning') + '</div><div class="facts">' + facts.join('') + '</div></div>' +
+      '<div class="meanings">' + esc(meanings.join(', ')) + '</div><div class="facts">' + facts.join('') + '</div></div>' +
       '<div class="hero-actions"><button id="detailStar" class="star' + (isFav(k) ? ' on' : '') + '" data-star="' + k + '" title="Favorite" aria-label="Favorite">★</button><div id="groupsBox" class="groups-box"></div></div></div>';
     html += '<div class="sec"><h3>Readings compared</h3><table class="cmp">' +
       '<tr><th>On\'yomi 音読み<span>Chinese-derived, katakana</span></th><td>' + (d.on.length ? d.on.map(function (r) { return rd(r, true); }).join('') : '<span class="muted">none (native Japanese only)</span>') + '</td></tr>' +
@@ -584,11 +584,11 @@
       '</table>' +
       (d.vf ? '<p class="small muted">Pinyin/Hán Việt taken from the KANJIDIC2 entry of the variant form <span lang="ja">' + d.vf + '</span>.</p>' : '') +
       '<div class="hint">Tip: on\'yomi, pinyin and Hán Việt all descend from Middle Chinese, so they often sound alike (e.g. 学 gaku · xué · học; 国 koku · guó · quốc). Kun\'yomi is the native Japanese word and is unrelated.</div></div>';
+    html += '<div class="sec" id="exBox"><h3>Example sentences</h3><p class="muted small">Loading…</p></div>';
     html += '<div class="sec"><h3>Stroke order</h3><div class="strokes-wrap"><div><div id="bigsvg" class="svgbox"></div>' +
       '<div class="row" style="margin-top:8px"><button class="btn primary" id="animBtn">▶ Animate</button><span class="small muted">Numbers mark where each stroke starts</span></div><p id="strokeNote" class="small muted"></p></div>' +
       '<div><div class="small" style="margin-bottom:6px">Components: ' + comps + '</div><div id="frames" class="frames"></div><div id="strokeNames"></div></div></div></div>';
     if (d.ex.length) html += '<div class="sec"><h3>Common words</h3>' + d.ex.map(function (e) { return exampleHTML(e, k); }).join('') + '</div>';
-    html += '<div class="sec" id="exBox"><h3>Example sentences</h3><p class="muted small">Loading…</p></div>';
     $('#detail').innerHTML = html;
     renderGroupsBox();
     loadStrokes(k).then(function (sd) {
@@ -744,7 +744,7 @@
       var cards = a.kanji.map(function (d) {
         var ms = d.m.filter(function (m) { return m !== '(kokuji)'; }).slice(0, 3).join(', ');
         var meta = [d.py[0] || '', d.hv[0] || ''].filter(Boolean).join(' · ');
-        return '<div class="ask-card" data-k="' + d.k + '"><span class="k" lang="ja">' + d.k + '</span><span class="info"><div class="m">' + esc(ms) + speakBtn('en', ms, 'Play meaning') + '</div><div class="r">' + readingBits(d) + '</div>' +
+        return '<div class="ask-card" data-k="' + d.k + '"><span class="k" lang="ja">' + d.k + '</span><span class="info"><div class="m">' + esc(ms) + '</div><div class="r">' + readingBits(d) + '</div>' +
           (meta ? '<div class="r">' + esc(meta) + '</div>' : '') + '<div class="ask-ex" data-ex="' + d.k + '"></div></span></div>';
       }).join('');
       var hints = a.hints && a.hints.length ? '<div class="hints">' + a.hints.map(function (h) { return '<button type="button" class="hint-btn" data-ask="' + esc(h) + '">' + esc(h) + '</button>'; }).join('') + '</div>' : '';

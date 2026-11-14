@@ -11,7 +11,7 @@ Search by kanji (paste one or several), English meaning, romaji (`gaku`), kana (
 
 The **Ask** tab answers plain-English questions from the same dictionary (“fancy word for think”, “kanji related to water”, “reading sui”, “what does 語 mean”). It does not call a server or a language model. The thread is saved in this browser under `kanjiLookup.ask.v1` (separate from history and favorites) and can be cleared.
 
-Speaker buttons next to each on'yomi, each kun'yomi, the English meaning, and each example sentence use the browser’s own speech synthesis (`ja-JP` when a Japanese voice is installed, `en` for the meaning). They are omitted if the browser has no speech API.
+Speaker buttons next to each on'yomi, each kun'yomi, and each example sentence use the browser’s own speech synthesis (`ja-JP` when a Japanese voice is installed). They are omitted if the browser has no speech API.
 
 Example sentences (1–2 per kanji, with furigana) load when you open a kanji or an Ask card (`data/ex/<codepoint>.json`), so they are not part of the first download. Most come from the Tanaka corpus; a few rare kanji have a short draft tagged “generated”.
 
