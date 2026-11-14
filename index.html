@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kanji Lookup · Hán Việt · Pinyin</title>
+<meta name="description" content="Look up the 2,136 Jōyō kanji: stroke order, English meanings, on'yomi and kun'yomi with Mandarin pinyin and Sino-Vietnamese (Hán Việt) readings, and common example words.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo" lang="ja">漢</span><span>Kanji Lookup</span></div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="search" role="tab">Search</button>
+    <button class="tab" data-view="history" role="tab">History</button>
+    <button class="tab" data-view="favorites" role="tab">Favorites</button>
+  </nav>
+  <button id="themeBtn" class="icon-btn" title="Toggle light/dark" aria-label="Toggle light or dark theme">◐</button>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <section id="view-search" class="view">
+      <input id="q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+        placeholder="Kanji, English, romaji, kana, pinyin or Hán Việt…" aria-label="Search">
+      <p id="count" class="muted small"></p>
+      <ul id="results" class="list"></ul>
+    </section>
+
+    <section id="view-history" class="view hidden">
+      <div class="row-between">
+        <h2>History</h2>
+        <button id="clearHistory" class="btn danger">Clear all</button>
+      </div>
+      <div id="historyList"></div>
+    </section>
+
+    <section id="view-favorites" class="view hidden">
+      <div class="row-between">
+        <h2>Favorites</h2>
+        <button id="newGroup" class="btn">+ New group</button>
+      </div>
+      <div id="groupChips" class="chips"></div>
+      <div id="groupActions" class="row small"></div>
+      <ul id="favList" class="list"></ul>
+    </section>
+
+    <section class="backup">
+      <h3>Backup</h3>
+      <p class="muted small">History, favorites and groups are saved in this browser only. Export a file to keep them safe.</p>
+      <div class="row">
+        <button id="exportBtn" class="btn">Export JSON</button>
+        <label class="btn">Import JSON<input id="importFile" type="file" accept="application/json,.json" hidden></label>
+      </div>
+      <p id="backupMsg" class="muted small"></p>
+    </section>
+  </aside>
+
+  <article id="detail" class="detail" aria-live="polite"></article>
+</main>
+
+<footer class="foot small muted">
+  Data: <a href="https://www.edrdg.org/wiki/index.php/KANJIDIC_Project">KANJIDIC2</a> and
+  <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">JMdict</a> © EDRDG (CC BY-SA 4.0);
+  stroke order from <a href="https://kanjivg.tagaini.net">KanjiVG</a> © Ulrich Apel (CC BY-SA 3.0). See README for details.
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
