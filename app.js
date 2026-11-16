@@ -703,7 +703,7 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = 'RELEASE';
+  var HW_V = '0b64a2b';
   var hwReady = null;
   function submitSearch() {
     renderResults();
