@@ -887,7 +887,7 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = 'RELEASE';
+  var HW_V = '6d5060c';
   var hwReady = null;
   function submitSearch() {
     window.kanjiGc('/search', 'Search submitted', true);
