@@ -21,7 +21,9 @@ Example sentences (1–2 per kanji, with furigana) load when you open a kanji or
 
 Your **history** (auto-saved, grouped by day, up to 500 kanji), **favorites** (★) and **custom favorite groups** (create, rename, delete; a kanji can be in several groups) are stored in your browser's `localStorage` under the key `kanjiLookup.v1`. Use **Export JSON** / **Import JSON** to back them up or move them to another browser (import can replace or merge).
 
-Plain HTML, CSS and vanilla JavaScript. No build step, no frameworks, no tracking. Light and dark themes, works on phones.
+Plain HTML, CSS and vanilla JavaScript. No build step, no frameworks. Light and dark themes, works on phones.
+
+Visits are counted with [GoatCounter](https://www.goatcounter.com/) (`kanji-lookup.goatcounter.com`) without cookies or personal data. Page views are the kanji (`/k/水`) or component (`/part/言`). Search text and Ask questions are never sent. Open the site once with `?me=1` to mark this browser as the owner (`localStorage` key `kanjiLookup.me`); those visits are prefixed `/me/` so they stay separate in the dashboard. `?me=0` turns that off.
 
 ## Run locally
 

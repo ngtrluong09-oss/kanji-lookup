@@ -268,6 +268,7 @@
       e.preventDefault();
       var q = $('q');
       q.value += btn.getAttribute('data-hw');
+      if (window.kanjiGc) window.kanjiGc('/hw-pick', 'A handwriting candidate picked', true);
       strokes = [];
       drawing = null;
       draw();

@@ -1,6 +1,45 @@
 /* Kanji Lookup — vanilla JS, no build step. Data: KANJIDIC2, JMdict (EDRDG, CC BY-SA 4.0), KanjiVG (CC BY-SA 3.0). */
 (function () {
   'use strict';
+  var ME_KEY = 'kanjiLookup.me';
+  window.goatcounter = window.goatcounter || {};
+  window.goatcounter.no_onload = true;
+  var gcQueue = [], gcLastPath = '';
+  function gcOwner() {
+    try { return localStorage.getItem(ME_KEY) === '1'; } catch (e) { return false; }
+  }
+  function gcSend(opts) {
+    if (window.goatcounter && typeof window.goatcounter.count === 'function') window.goatcounter.count(opts);
+    else gcQueue.push(opts);
+  }
+  function gcFlush() {
+    if (!window.goatcounter || typeof window.goatcounter.count !== 'function') return;
+    var q = gcQueue.splice(0);
+    for (var i = 0; i < q.length; i++) window.goatcounter.count(q[i]);
+  }
+  window.goatcounter.onload = function () { gcFlush(); };
+  function gcPath(path) { return (gcOwner() ? '/me' : '') + path; }
+  window.kanjiGc = function (path, title, isEvent) {
+    var opts = { path: gcPath(path), title: title };
+    if (isEvent) opts.event = true;
+    gcSend(opts);
+  };
+  function gcPage(path, title) {
+    var full = gcPath(path);
+    if (full === gcLastPath) return;
+    gcLastPath = full;
+    gcSend({ path: full, title: title });
+  }
+  (function () {
+    var bits = location.search.replace(/^\?/, '').split('&'), i, on = false;
+    for (i = 0; i < bits.length; i++) {
+      if (bits[i] === 'me=1') { try { localStorage.setItem(ME_KEY, '1'); } catch (e) {} }
+      else if (bits[i] === 'me=0') { try { localStorage.removeItem(ME_KEY); } catch (e2) {} }
+    }
+    on = gcOwner();
+    var note = document.getElementById('ownerNote');
+    if (note) note.classList.toggle('hidden', !on);
+  })();
   var STORE_KEY = 'kanjiLookup.v1';
   var ASK_KEY = 'kanjiLookup.ask.v1';
   var THEME_KEY = 'kanjiLookup.theme';
@@ -88,6 +127,7 @@
     if (voice) u.voice = voice;
     u.onend = u.onerror = function () { if (gen === speakGen) clearSpeak(); };
     speechSynthesis.speak(u);
+    window.kanjiGc('/tts', 'TTS played', true);
   }
 
   /* ---------- storage ---------- */
@@ -114,7 +154,8 @@
   }
   function isFav(k) { return !!store.favorites[k]; }
   function toggleFav(k) {
-    if (isFav(k)) delete store.favorites[k]; else store.favorites[k] = { t: Date.now(), groups: [] };
+    if (isFav(k)) delete store.favorites[k];
+    else { store.favorites[k] = { t: Date.now(), groups: [] }; window.kanjiGc('/fav', 'Favorite added', true); }
     save(); refreshStars(); if (view === 'favorites') renderFavorites();
   }
   function setGroup(k, gid, on) {
@@ -673,6 +714,7 @@
   }
   function showPart(g) {
     if (!g) return;
+    gcPage('/part/' + g, g);
     detailGen++;
     var gen = detailGen;
     current = null;
@@ -695,6 +737,7 @@
     else if (!opts.noHistory) addHistory(k);
     if (location.hash !== '#' + encodeURIComponent(k)) history.replaceState(null, '', '#' + encodeURIComponent(k));
     document.title = k + ' · Kanji Lookup';
+    gcPage('/k/' + k, k);
     var kokuji = d.m.indexOf('(kokuji)') >= 0;
     var meanings = d.m.filter(function (m) { return m !== '(kokuji)'; });
     var facts = ['<span class="fact">' + d.s + ' strokes</span>',
@@ -844,9 +887,10 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = 'a4550db';
+  var HW_V = 'RELEASE';
   var hwReady = null;
   function submitSearch() {
+    window.kanjiGc('/search', 'Search submitted', true);
     renderResults();
     var f = document.querySelector('#results .item');
     if ($('#q').value.trim() && f) open(f.getAttribute('data-k'), { scroll: true });
@@ -877,7 +921,7 @@
   function toggleHandwriting() {
     var pad = $('#hwPad');
     if (!pad) return;
-    if (pad.classList.contains('hidden')) openHandwriting();
+    if (pad.classList.contains('hidden')) { window.kanjiGc('/hw-open', 'Handwriting pad opened', true); openHandwriting(); }
     else {
       pad.classList.add('hidden');
       var btn = $('#hwToggle');
@@ -987,6 +1031,7 @@
   function submitAsk(text) {
     text = String(text || '').replace(/\s+/g, ' ').trim();
     if (!text) return;
+    window.kanjiGc('/ask', 'An Ask question sent', true);
     askLog.push(text.slice(0, 200));
     if (askLog.length > 40) askLog = askLog.slice(-40);
     saveAsk();
