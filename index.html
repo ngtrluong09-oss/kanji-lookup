@@ -7,7 +7,7 @@
 <meta name="description" content="Look up the 2,136 Jōyō kanji: stroke order, English meanings, on'yomi and kun'yomi with Mandarin pinyin and Sino-Vietnamese (Hán Việt) readings, and common example words.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=0a65f98">
+<link rel="stylesheet" href="style.css?v=RELEASE">
 </head>
 <body>
 <header class="top">
@@ -24,8 +24,21 @@
 <main class="layout">
   <aside class="side">
     <section id="view-search" class="view">
-      <input id="q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
-        placeholder="Kanji, English, romaji, kana, pinyin or Hán Việt…" aria-label="Search">
+      <form id="searchForm" class="search-row" autocomplete="off">
+        <input id="q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+          placeholder="Kanji, English, romaji, kana, pinyin or Hán Việt…" aria-label="Search">
+        <button class="btn primary" type="submit">Search</button>
+        <button id="hwToggle" class="btn" type="button" aria-pressed="false" aria-controls="hwPad">Write</button>
+      </form>
+      <div id="hwPad" class="hw hidden">
+        <canvas id="hwCanvas" width="300" height="300" aria-label="Handwriting pad"></canvas>
+        <div class="row">
+          <button id="hwUndo" class="btn" type="button" disabled>Undo</button>
+          <button id="hwClear" class="btn" type="button">Clear</button>
+        </div>
+        <div id="hwCands" class="hw-cands" aria-live="polite"></div>
+        <p class="muted small">Suggestions update as you draw. Nothing is searched until you press Enter or Search.</p>
+      </div>
       <p id="count" class="muted small"></p>
       <ul id="results" class="list"></ul>
     </section>
@@ -81,8 +94,10 @@
   <a href="https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project">JMdict</a> © EDRDG (CC BY-SA 4.0);
   stroke order from <a href="https://kanjivg.tagaini.net">KanjiVG</a> © Ulrich Apel (CC BY-SA 3.0);
   example sentences from the <a href="https://tatoeba.org/en/">Tanaka corpus</a> (Tatoeba / JMdict examples) © Tanaka Yasuhito and Tatoeba contributors,
-  <a href="https://creativecommons.org/licenses/by/2.0/fr/deed.en">CC BY 2.0 FR</a>. See README for details.
+  <a href="https://creativecommons.org/licenses/by/2.0/fr/deed.en">CC BY 2.0 FR</a>.
+  Handwriting shapes from <a href="https://kanjivg.tagaini.net">KanjiVG</a>; matching follows
+  <a href="https://github.com/asdfjkl/kanjicanvas">KanjiCanvas</a> © Dominik Klein (MIT). See README for details.
 </footer>
-<script src="app.js?v=0a65f98"></script>
+<script src="app.js?v=RELEASE"></script>
 </body>
 </html>

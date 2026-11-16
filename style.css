@@ -20,8 +20,15 @@ h2{font-size:17px;margin:0}h3{font-size:14px;margin:0 0 4px}
 @media (max-width:820px){.layout{grid-template-columns:1fr;padding:10px}.side{display:contents}.view{order:1}.detail{order:2}.backup{order:3}}
 .side{display:flex;flex-direction:column;gap:16px;min-width:0}
 .view,.backup,.detail{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
-#q{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text)}
+.search-row{display:flex;gap:6px;align-items:center}
+#q{flex:1;min-width:0;width:auto;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text)}
 #q:focus{outline:2px solid var(--accent);outline-offset:1px}
+.search-row .btn{flex:none;min-height:40px}
+.hw{margin-top:8px}
+#hwCanvas{display:block;width:100%;height:auto;aspect-ratio:1;border:1px solid var(--line);border-radius:12px;background:var(--bg);touch-action:none;cursor:crosshair}
+.hw-cands{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:0}
+.hw-cand{font-family:var(--jp);font-size:26px;min-width:44px;height:44px;padding:0 6px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:10px;cursor:pointer}
+.hw-cand:hover{background:var(--soft);border-color:var(--accent)}
 .list{list-style:none;margin:8px 0 0;padding:0;max-height:60vh;overflow:auto}
 @media (max-width:820px){.list{max-height:42vh}}
 .item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer}

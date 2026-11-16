@@ -7,7 +7,9 @@ A small static website for looking up the **2,136 Jōyō kanji**. For each kanji
 - **Readings compared side by side**: on'yomi (katakana + romaji), kun'yomi (hiragana + romaji, okurigana greyed), Mandarin **Hanyu Pinyin** with tone marks, and Sino-Vietnamese **Hán Việt**.
 - **Common words**: 3–5 example words from JMdict priority entries, with kana, romaji and English.
 
-Search by kanji (paste one or several), English meaning, romaji (`gaku`), kana (`まなぶ`, `ガク`), pinyin (`xue`) or Hán Việt (`hoc`, accents optional).
+Search by kanji (paste one or several), English meaning, romaji (`gaku`), kana (`まなぶ`, `ガク`), pinyin (`xue`) or Hán Việt (`hoc`, accents optional). **Write** opens a handwriting pad (mouse, touch, or pen). Suggestions appear after each stroke and are not searched until you press Enter or Search. Tapping a suggestion adds that kanji to the box and clears the pad.
+
+Handwriting runs in the browser. `hw.js` and `data/hw.bin` load the first time you open the pad. Shapes come from KanjiVG. Matching is stroke-order free and tolerates a few extra or missing strokes, following [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) © Dominik Klein (MIT).
 
 The **Ask** tab answers plain-English questions from the same dictionary (“fancy word for think”, “kanji related to water”, “reading sui”, “what does 語 mean”). It does not call a server or a language model. The thread is saved in this browser under `kanjiLookup.ask.v1` (separate from history and favorites) and can be cleared.
 
@@ -39,6 +41,7 @@ Push this folder to the root of a repository, then in **Settings → Pages** cho
 | `index.html`, `style.css`, `app.js` | The app |
 | `data/kanji.json` | 2,136 entries: meanings, readings, pinyin, Hán Việt, radical, components, grade, old JLPT level, frequency, example words |
 | `data/strokes/<hex>.json` | KanjiVG stroke paths and stroke types, one file per kanji (file name = Unicode code point in 5-digit hex) |
+| `hw.js`, `data/hw.bin` | Handwriting pad and compact KanjiVG shapes, loaded only when Write is opened |
 | `data/ex/<hex>.json` | 1–2 example sentences, loaded on demand. `t` = Tanaka corpus, `g` = generated draft |
 
 ## Data notes and gaps

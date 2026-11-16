@@ -692,6 +692,7 @@
     }
     if (t.id === 'clearAsk') { askLog = []; saveAsk(); renderAsk(); }
     if (t.id === 'exportBtn') exportData();
+    if (t.id === 'hwToggle') toggleHandwriting();
   });
   document.addEventListener('change', function (e) {
     var t = e.target;
@@ -702,8 +703,56 @@
       fr.readAsText(t.files[0]);
     }
   });
+  var HW_V = 'RELEASE';
+  var hwReady = null;
+  function submitSearch() {
+    renderResults();
+    var f = document.querySelector('#results .item');
+    if ($('#q').value.trim() && f) open(f.getAttribute('data-k'), { scroll: true });
+  }
+  var searchForm = $('#searchForm');
+  if (searchForm) searchForm.addEventListener('submit', function (e) { e.preventDefault(); submitSearch(); });
+  function openHandwriting() {
+    var pad = $('#hwPad'), btn = $('#hwToggle');
+    if (!pad) return;
+    if (!DATA.length) { setTimeout(openHandwriting, 40); return; }
+    pad.classList.remove('hidden');
+    if (btn) btn.setAttribute('aria-pressed', 'true');
+    if (!hwReady) {
+      hwReady = new Promise(function (res, rej) {
+        var s = document.createElement('script');
+        s.src = 'hw.js?v=' + HW_V;
+        s.onload = function () { res(); };
+        s.onerror = function () { hwReady = null; rej(new Error('hw.js')); };
+        document.body.appendChild(s);
+      }).then(function () {
+        return window.KanjiHW.start(DATA.map(function (d) { return d.k; }), 'data/hw.bin?v=' + HW_V);
+      });
+    }
+    hwReady.then(function () {
+      requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });
+    }).catch(function () {});
+  }
+  function toggleHandwriting() {
+    var pad = $('#hwPad');
+    if (!pad) return;
+    if (pad.classList.contains('hidden')) openHandwriting();
+    else {
+      pad.classList.add('hidden');
+      var btn = $('#hwToggle');
+      if (btn) btn.setAttribute('aria-pressed', 'false');
+    }
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.repeat) return;
+    var pad = $('#hwPad');
+    if (!pad || pad.classList.contains('hidden')) return;
+    var tgt = e.target;
+    if (tgt && tgt.closest && tgt.closest('button, a, textarea, #searchForm, #view-ask')) return;
+    e.preventDefault();
+    submitSearch();
+  });
   var deb; $('#q').addEventListener('input', function () { clearTimeout(deb); deb = setTimeout(renderResults, 120); });
-  $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') { var f = document.querySelector('#results .item'); if (f) open(f.getAttribute('data-k'), { scroll: true }); } });
   window.addEventListener('hashchange', function () { var k = decodeURIComponent(location.hash.slice(1)); if (BY[k] && k !== current) open(k); });
   window.addEventListener('storage', function (e) { if (e.key === STORE_KEY) { store = loadStore(); showView(view); refreshStars(); } });
 
