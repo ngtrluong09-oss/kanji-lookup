@@ -844,7 +844,7 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = 'RELEASE';
+  var HW_V = 'a4550db';
   var hwReady = null;
   function submitSearch() {
     renderResults();
