@@ -1,0 +1,1 @@
+{"lay":"Bottom-left surround","sum":"連 = 車 (car) + ⻌ (walk, しんにょう)","tree":[{"g":"車","m":"car","s":7,"i":[0,1,2,3,4,5,6],"pos":"inside the wrap","also":["連","軍","運","転","輸","撃","輪","軽"]},{"g":"⻌","m":"walk","s":3,"i":[7,8,9],"jn":"しんにょう","pos":"wrapping underneath","rad":1,"also":["連","選","通","進","近","道","運","過"]}],"type":"Compound ideograph"}

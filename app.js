@@ -179,7 +179,7 @@
   var RAD = { water: '水氵', ice: '冫', fire: '火灬', tree: '木', wood: '木', person: '人亻', people: '人亻', human: '人亻', man: '人亻', hand: '手扌', heart: '心忄', mind: '心忄', feeling: '心忄', speech: '言', language: '言', talk: '言', say: '言', word: '言', metal: '金', gold: '金', mouth: '口', earth: '土', soil: '土', ground: '土', grass: '艹艸', plant: '艹艸', sun: '日', day: '日', moon: '月', month: '月', woman: '女', thread: '糸', silk: '糸', knife: '刀刂', sword: '刀刂', mountain: '山', stone: '石', rock: '石', rain: '雨', fish: '魚', bird: '鳥', horse: '馬', dog: '犬犭', eye: '目', ear: '耳', foot: '足', car: '車', vehicle: '車', food: '食', eat: '食', rice: '米', gate: '門', door: '門', cloth: '巾', clothes: '衣衤', wind: '風', insect: '虫', bug: '虫', money: '貝', shell: '貝', bamboo: '竹', field: '田', power: '力', strength: '力', king: '王', jewel: '玉', road: '辵⻌', walk: '辵⻌', hill: '阜阝⻖', sick: '疒', illness: '疒', disease: '疒', alcohol: '酉', wine: '酉', sake: '酉', boat: '舟', ship: '舟', cow: '牛', ox: '牛', child: '子', spirit: '示礻', death: '歹', sound: '音', body: '肉', meat: '肉', see: '見目', run: '走' };
   var RAD_CH = {};
   Object.keys(RAD).forEach(function (k) { Array.from(RAD[k]).forEach(function (ch) { RAD_CH[ch] = RAD[k]; }); });
-  var ASK_HINTS = ['fancy word for think', 'kanji meaning to decide', 'kanji related to water', 'kanji with the reading sui', 'what does 語 mean'];
+  var ASK_HINTS = ['fancy word for think', 'what are the parts of 語', 'which kanji share 言', 'kanji related to water', 'what does 語 mean'];
   function stemSet(w) {
     var s = {}; s[w] = 1;
     if (IRREG[w]) s[IRREG[w]] = 1;
@@ -307,11 +307,14 @@
   }
   function askIntent(raw) {
     var s = raw.toLowerCase();
-    var kanji = Array.from(raw).filter(function (c) { return isKanji(c) && BY[c]; });
+    var anyK = Array.from(raw).filter(isKanji);
+    var kanji = anyK.filter(function (c) { return BY[c]; });
     if (/\b(fancy|formal|literary|polite|sophisticated)\b/.test(s)) return 'fancy';
     if (/\brelated to\b|\bassociated with\b|\bto do with\b|\bconnected to\b/.test(s)) return 'related';
     if (!kanji.length && /\b(readings?|pronounced|pronunciation|onyomi|kunyomi|romaji|pinyin|han viet|hanviet)\b/.test(s)) return 'reading';
     var latin = (s.match(/[a-z']+/g) || []).filter(function (w) { return !FILL[w] && w.length > 2; });
+    if (anyK.length && /\b(parts?|components?|structure|breakdown|composed|made)\b/.test(s)) return 'parts';
+    if (anyK.length && /\b(share|shares|shared|contain|contains|containing|include|includes)\b/.test(s)) return 'share';
     if (kanji.length && !latin.length) return 'explain';
     return 'meaning';
   }
@@ -339,6 +342,10 @@
     raw = String(raw || '').replace(/\s+/g, ' ').trim();
     if (!raw) return { intent: 'empty', lead: 'Ask in ordinary words. A few things that work:', kanji: [], words: [], hints: ASK_HINTS };
     var intent = askIntent(raw), concept = conceptText(raw, intent) || raw, stems = stemsFromConcept(concept);
+    if (intent === 'parts' || intent === 'share') {
+      var glyph = (Array.from(raw).filter(function (c) { return isKanji(c); })[0]) || '';
+      return { intent: intent, lead: 'Looking up ' + glyph + '…', kanji: [], words: [], hints: [], pending: intent, glyph: glyph };
+    }
     if (intent === 'explain') {
       var seen = {}, ks = [];
       Array.from(raw).forEach(function (c) { if (BY[c] && !seen[c]) { seen[c] = 1; ks.push(BY[c]); } });
@@ -444,12 +451,25 @@
 
   /* ---------- strokes ---------- */
   function hexOf(k) { var h = k.codePointAt(0).toString(16); while (h.length < 5) h = '0' + h; return h; }
+  var detailGen = 0;
   var exCache = {};
+  var compCache = {}, partCache = {};
   function loadExamples(k) {
     if (exCache[k]) return Promise.resolve(exCache[k]);
     return fetch('data/ex/' + hexOf(k) + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (j) { exCache[k] = j || []; return exCache[k]; })
       .catch(function () { exCache[k] = []; return []; });
+  }
+  function loadComp(k) {
+    if (compCache[k]) return Promise.resolve(compCache[k]);
+    return fetch('data/comp/' + hexOf(k) + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) { compCache[k] = j || {}; return compCache[k]; })
+      .catch(function () { compCache[k] = {}; return {}; });
+  }
+  function loadPart(g) {
+    if (partCache[g]) return Promise.resolve(partCache[g]);
+    return fetch('data/part/' + hexOf(g) + '.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) { partCache[g] = j; return j; });
   }
   function stepBack(s, i) { var p = i - 1; if (p > 0 && s.charCodeAt(p) >= 0xDC00 && s.charCodeAt(p) <= 0xDFFF) p--; return p; }
   function annotatedHTML(s) {
@@ -555,6 +575,117 @@
       (e[3] === 0 ? '<span class="tag">less common</span>' : '') + '</span><span class="g">' + esc(e[2]) + '</span></div>';
   }
   var histTimer = null;
+  var PART_COL = ['#2563eb', '#ea580c', '#059669', '#7c3aed', '#b45309', '#db2777'];
+  function partHref(g) { return '#part/' + encodeURIComponent(g); }
+  function partA(g, inner) { return '<a class="part-link" href="' + partHref(g) + '">' + inner + '</a>'; }
+  function roleBadge(role) {
+    if (role === 'sem') return '<span class="badge sem">meaning</span>';
+    if (role === 'phon') return '<span class="badge phon">sound</span>';
+    return '';
+  }
+  function partBits(n) {
+    if (!n || !n.g) return '';
+    var bits = [partA(n.g, '<span class="pg" lang="ja">' + n.g + '</span>')];
+    if (n.m) bits.push(esc(n.m));
+    if (n.s) bits.push(n.s + ' stroke' + (n.s === 1 ? '' : 's'));
+    if (n.jn) bits.push('<span lang="ja">' + esc(n.jn) + '</span>');
+    if (n.pos) bits.push(esc(n.pos));
+    return bits.join(' · ') + (n.rad ? '<span class="badge">radical</span>' : '') + roleBadge(n.role);
+  }
+  function alsoLine(n) {
+    if (!n.also || !n.also.length) return '';
+    return '<div class="also">Also in ' + n.also.map(function (k) { return '<a href="#' + encodeURIComponent(k) + '" lang="ja">' + k + '</a>'; }).join(' ') +
+      ' <a href="' + partHref(n.g) + '">all</a></div>';
+  }
+  function treeHTML(nodes) {
+    if (!nodes || !nodes.length) return '';
+    return '<ul class="tree">' + nodes.map(function (n) {
+      return '<li>' + partBits(n) + alsoLine(n) + treeHTML(n.ch) + '</li>';
+    }).join('') + '</ul>';
+  }
+  function partSVG(paths, nodes) {
+    if (!paths || !nodes || !nodes.length) return '';
+    var map = {}, n, i;
+    nodes.forEach(function (p, idx) {
+      (p.i || []).forEach(function (si) { map[si] = PART_COL[idx % PART_COL.length]; });
+    });
+    var s = '<svg viewBox="0 0 109 109" role="img" aria-label="Component diagram">';
+    paths.forEach(function (d, i) {
+      s += '<path class="stk" d="' + d + '" style="stroke:' + (map[i] || 'currentColor') + '"/>';
+    });
+    return s + '</svg>';
+  }
+  function renderStruct(rec, paths, k) {
+    var box = $('#structBox'); if (!box) return;
+    if (!rec || !rec.sum) { box.innerHTML = '<h3>Components and structure</h3><p class="muted small">No component breakdown is recorded for this kanji.</p>'; return; }
+    var legend = (rec.tree || []).map(function (n, i) {
+      return '<span class="leg"><i style="background:' + PART_COL[i % PART_COL.length] + '"></i>' + partA(n.g, n.g) + '</span>';
+    }).join('');
+    var fam = '';
+    if (rec.fam && rec.fam.length) {
+      fam = '<p class="fam">Sound family of ' + partA(rec.famG, rec.famG) + ': ' + rec.fam.map(function (row) {
+        return '<a href="#' + encodeURIComponent(row[0]) + '" lang="ja">' + row[0] + '</a> <span class="muted">' + esc(row[1] || '') + '</span>';
+      }).join(' · ') + '</p>';
+    }
+    var note = '';
+    if (rec.type && rec.type !== 'Phono-semantic compound') note = '<p class="muted small">Recorded as: ' + esc(rec.type) + '. No sound/meaning split is marked.</p>';
+    box.innerHTML = '<h3>Components and structure</h3><p class="sum">' + esc(rec.sum) + '</p>' +
+      '<p class="muted small">Layout: ' + esc(rec.lay || '') + '</p>' + note +
+      '<div class="struct-top"><div class="svgbox part-svg">' + partSVG(paths, rec.tree) + '</div><div>' +
+      (legend ? '<div class="legend">' + legend + '</div>' : '') + treeHTML(rec.tree) + '</div></div>' + fam;
+  }
+  function renderPart(p, g) {
+    if (!p) { $('#detail').innerHTML = '<p>No page for ' + esc(g) + '.</p>'; return; }
+    var ks = Array.from(p.k || ''), groups = [], last = -1, gi;
+    ks.forEach(function (ch) {
+      var d = BY[ch]; if (!d) return;
+      if (!groups.length || groups[groups.length - 1].s !== d.s) groups.push({ s: d.s, items: [] });
+      groups[groups.length - 1].items.push(d);
+    });
+    var kanjiHTML = groups.map(function (gr) {
+      return '<div class="day">' + gr.s + ' stroke' + (gr.s === 1 ? '' : 's') + '</div><div class="pk-row">' + gr.items.map(function (d) {
+        var m = (d.m.filter(function (x) { return x && x.charAt(0) !== '('; })[0] || '');
+        return '<a class="pk" href="#' + encodeURIComponent(d.k) + '"><b lang="ja">' + d.k + '</b><span>' + esc(m) + '</span></a>';
+      }).join('') + '</div>';
+    }).join('');
+    var words = p.w || [];
+    var wordHTML = words.map(function (w, i) {
+      return '<div class="ex' + (i >= 20 ? ' part-extra hidden' : '') + '"><span class="w" lang="ja">' + esc(w[0]) + '</span><span class="rr" lang="ja">' + esc(w[1]) + '</span><span class="g">' + esc(w[2]) + '</span></div>';
+    }).join('');
+    var more = words.length > 20 ? '<button type="button" id="partMore" class="btn">Show more (' + (words.length - 20) + ')</button>' : '';
+    var fam = '';
+    if (p.fam && p.fam.length) {
+      fam = '<p class="fam">As a sound part (Kanjium): ' + p.fam.map(function (row) {
+        return '<a href="#' + encodeURIComponent(row[0]) + '" lang="ja">' + row[0] + '</a> <span class="muted">' + esc(row[1] || '') + '</span>';
+      }).join(' · ') + '</p>';
+    }
+    var entry = BY[g] ? '<a href="#' + encodeURIComponent(g) + '">Open the kanji entry</a>' : '';
+    $('#detail').innerHTML = '<div class="part-view"><p class="muted small">Component</p><div class="hero"><div class="big" lang="ja">' + g + '</div><div class="hero-main">' +
+      '<div class="meanings">' + esc(p.m || 'No meaning recorded') + '</div><div class="facts">' +
+      (p.jn ? '<span class="fact" lang="ja">' + esc(p.jn) + '</span>' : '') +
+      (p.s ? '<span class="fact">' + p.s + ' strokes</span>' : '') +
+      (p.n ? '<span class="fact">Kangxi radical #' + p.n + '</span>' : '') +
+      '</div><p>' + entry + '</p></div></div>' + fam +
+      '<div class="sec"><h3>Jōyō kanji containing ' + g + ' (' + ks.length + ')</h3>' + (kanjiHTML || '<p class="muted small">None in this dictionary.</p>') + '</div>' +
+      '<div class="sec"><h3>Common words</h3>' + (wordHTML || '<p class="muted small">No common JMdict words were stored for this part.</p>') + more +
+      '<p class="small muted">Words from JMdict that use a Jōyō kanji containing this part.</p></div></div>';
+    document.title = g + ' · component · Kanji Lookup';
+  }
+  function showPart(g) {
+    if (!g) return;
+    detailGen++;
+    var gen = detailGen;
+    current = null;
+    document.title = g + ' · component · Kanji Lookup';
+    $('#detail').innerHTML = '<p class="muted">Loading ' + esc(g) + '…</p>';
+    loadPart(g).then(function (p) {
+      if (gen !== detailGen) return;
+      renderPart(p, g);
+    }).catch(function () {
+      if (gen !== detailGen) return;
+      $('#detail').innerHTML = '<p>No component page for ' + esc(g) + '.</p>';
+    });
+  }
   function open(k, opts) {
     opts = opts || {};
     var d = BY[k]; if (!d) return;
@@ -572,7 +703,7 @@
     if (d.j) facts.push('<span class="fact">' + OLDJLPT[d.j] + '</span>');
     if (d.f) facts.push('<span class="fact">Frequency #' + d.f + '</span>');
     if (kokuji) facts.push('<span class="fact">Kokuji (made in Japan)</span>');
-    var comps = d.c.length ? d.c.map(function (c) { return '<span class="comp" lang="ja"' + (BY[c] ? ' data-k="' + c + '"' : '') + '>' + esc(c) + '</span>'; }).join('') : '<span class="muted">single component</span>';
+    var gen = ++detailGen;
     var html = '<div class="hero"><div class="big" lang="ja">' + k + '</div><div class="hero-main">' +
       '<div class="meanings">' + esc(meanings.join(', ')) + '</div><div class="facts">' + facts.join('') + '</div></div>' +
       '<div class="hero-actions"><button id="detailStar" class="star' + (isFav(k) ? ' on' : '') + '" data-star="' + k + '" title="Favorite" aria-label="Favorite">★</button><div id="groupsBox" class="groups-box"></div></div></div>';
@@ -585,14 +716,15 @@
       (d.vf ? '<p class="small muted">Pinyin/Hán Việt taken from the KANJIDIC2 entry of the variant form <span lang="ja">' + d.vf + '</span>.</p>' : '') +
       '<div class="hint">Tip: on\'yomi, pinyin and Hán Việt all descend from Middle Chinese, so they often sound alike (e.g. 学 gaku · xué · học; 国 koku · guó · quốc). Kun\'yomi is the native Japanese word and is unrelated.</div></div>';
     html += '<div class="sec" id="exBox"><h3>Example sentences</h3><p class="muted small">Loading…</p></div>';
+    html += '<div class="sec" id="structBox"><h3>Components and structure</h3><p class="muted small">Loading…</p></div>';
     html += '<div class="sec"><h3>Stroke order</h3><div class="strokes-wrap"><div><div id="bigsvg" class="svgbox"></div>' +
       '<div class="row" style="margin-top:8px"><button class="btn primary" id="animBtn">▶ Animate</button><span class="small muted">Numbers mark where each stroke starts</span></div><p id="strokeNote" class="small muted"></p></div>' +
-      '<div><div class="small" style="margin-bottom:6px">Components: ' + comps + '</div><div id="frames" class="frames"></div><div id="strokeNames"></div></div></div></div>';
+      '<div><div id="frames" class="frames"></div><div id="strokeNames"></div></div></div></div>';
     if (d.ex.length) html += '<div class="sec"><h3>Common words</h3>' + d.ex.map(function (e) { return exampleHTML(e, k); }).join('') + '</div>';
     $('#detail').innerHTML = html;
     renderGroupsBox();
     loadStrokes(k).then(function (sd) {
-      if (current !== k) return;
+      if (gen !== detailGen || current !== k) return;
       var paths = sd.p, types = Array.from(sd.t || '');
       if (paths.length !== d.s) $('#strokeNote').textContent = 'This diagram (KanjiVG glyph form) has ' + paths.length + ' strokes; KANJIDIC2 counts ' + d.s + ' for the Jōyō form.';
       $('#bigsvg').innerHTML = bigSVG(paths);
@@ -600,9 +732,13 @@
       var names = paths.map(function (_, i) { var n = STROKE_EN[types[i]]; return n ? '<li>' + esc(n) + '</li>' : '<li class="muted">stroke ' + (i + 1) + '</li>'; }).join('');
       $('#strokeNames').innerHTML = '<div class="small" style="margin:10px 0 4px">Stroke by stroke (KanjiVG stroke types):</div><ol class="snames">' + names + '</ol>';
       if (opts.animate) animate();
-    }).catch(function () { if (current === k) $('#bigsvg').innerHTML = '<p class="muted small" style="padding:12px">Stroke data could not be loaded.</p>'; });
+    }).catch(function () { if (gen === detailGen && current === k) $('#bigsvg').innerHTML = '<p class="muted small" style="padding:12px">Stroke data could not be loaded.</p>'; });
+    Promise.all([loadComp(k), loadStrokes(k)]).then(function (pair) {
+      if (gen !== detailGen || current !== k) return;
+      renderStruct(pair[0], pair[1] && pair[1].p, k);
+    }).catch(function () { if (gen === detailGen && current === k) { var box = $('#structBox'); if (box) box.innerHTML = '<h3>Components and structure</h3><p class="muted small">Structure data could not be loaded.</p>'; } });
     loadExamples(k).then(function (rows) {
-      if (current !== k) return;
+      if (gen !== detailGen || current !== k) return;
       var box = $('#exBox'); if (!box) return;
       if (!rows.length) { box.remove(); return; }
       box.innerHTML = '<h3>Example sentences</h3>' + rows.slice(0, 2).map(sentenceHTML).join('') +
@@ -693,6 +829,11 @@
     if (t.id === 'clearAsk') { askLog = []; saveAsk(); renderAsk(); }
     if (t.id === 'exportBtn') exportData();
     if (t.id === 'hwToggle') toggleHandwriting();
+    if (t.id === 'partMore') {
+      document.querySelectorAll('.part-extra').forEach(function (el) { el.classList.remove('hidden'); });
+      t.remove();
+      return;
+    }
   });
   document.addEventListener('change', function (e) {
     var t = e.target;
@@ -703,7 +844,7 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = '0b64a2b';
+  var HW_V = 'RELEASE';
   var hwReady = null;
   function submitSearch() {
     renderResults();
@@ -753,15 +894,24 @@
     submitSearch();
   });
   var deb; $('#q').addEventListener('input', function () { clearTimeout(deb); deb = setTimeout(renderResults, 120); });
-  window.addEventListener('hashchange', function () { var k = decodeURIComponent(location.hash.slice(1)); if (BY[k] && k !== current) open(k); });
+  function routeHash() {
+    var h = '';
+    try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e2) { h = location.hash.replace(/^#/, ''); }
+    if (h.indexOf('part/') === 0) { showPart(h.slice(5)); return; }
+    if (BY[h] && h !== current) open(h);
+  }
+  window.addEventListener('hashchange', routeHash);
   window.addEventListener('storage', function (e) { if (e.key === STORE_KEY) { store = loadStore(); showView(view); refreshStars(); } });
 
   /* ---------- boot ---------- */
   fetch('data/kanji.json').then(function (r) { return r.json(); }).then(function (data) {
     DATA = data; buildIndex();
     renderResults();
-    var h = decodeURIComponent(location.hash.slice(1));
-    if (BY[h]) open(h); else open('学', { noHistory: true });
+    var h = '';
+    try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e2) { h = ''; }
+    if (h.indexOf('part/') === 0) showPart(h.slice(5));
+    else if (BY[h]) open(h);
+    else open('学', { noHistory: true });
   }).catch(function (e) { $('#detail').innerHTML = '<p>Could not load data/kanji.json (' + esc(e.message) + '). If you opened the file directly, serve the folder over http (e.g. GitHub Pages or <code>python3 -m http.server</code>).</p>'; });
 
   /* ---------- ask thread ---------- */
@@ -797,8 +947,31 @@
           (meta ? '<div class="r">' + esc(meta) + '</div>' : '') + '<div class="ask-ex" data-ex="' + d.k + '"></div></span></div>';
       }).join('');
       var hints = a.hints && a.hints.length ? '<div class="hints">' + a.hints.map(function (h) { return '<button type="button" class="hint-btn" data-ask="' + esc(h) + '">' + esc(h) + '</button>'; }).join('') + '</div>' : '';
-      return '<div class="bubble user">' + esc(q) + '</div><div class="bubble bot"><p>' + esc(a.lead) + '</p>' + words + cards + hints + '</div>';
+      var pending = a.pending && a.glyph ? '<div class="ask-pending" data-pending="' + a.pending + '" data-glyph="' + a.glyph + '"></div>' : '';
+      return '<div class="bubble user">' + esc(q) + '</div><div class="bubble bot"><p>' + esc(a.lead) + '</p>' + pending + words + cards + hints + '</div>';
     }).join('');
+    thread.querySelectorAll('[data-pending]').forEach(function (el) {
+      var kind = el.getAttribute('data-pending'), g = el.getAttribute('data-glyph'), bubble = el.closest('.bubble');
+      var done = function (html, lead) {
+        if (gen !== askGen || !bubble) return;
+        if (lead) { var p = bubble.querySelector('p'); if (p) p.textContent = lead; }
+        el.innerHTML = html;
+      };
+      if (kind === 'parts') {
+        loadComp(g).then(function (rec) {
+          if (!rec || !rec.sum) { done('<p class="muted small">No breakdown was found.</p>', 'No component breakdown for ' + g + '.'); return; }
+          done('<p class="sum">' + esc(rec.sum) + '</p><p class="muted small">Layout: ' + esc(rec.lay || '') + '</p>' + treeHTML(rec.tree) +
+            '<p><a href="' + partHref(g) + '">Open ' + g + '</a></p>', rec.sum);
+        }).catch(function () { done('', 'Could not load parts for ' + g + '.'); });
+      } else {
+        loadPart(g).then(function (p) {
+          var ks = Array.from((p && p.k) || '').filter(function (ch) { return BY[ch]; });
+          var cards = ks.slice(0, 8).map(function (ch) { return itemHTML(BY[ch]); }).join('');
+          done('<ul class="list">' + cards + '</ul><p><a href="' + partHref(g) + '">All ' + ks.length + ' Jōyō kanji with ' + g + '</a></p>',
+            ks.length + ' Jōyō kanji contain ' + g + '.');
+        }).catch(function () { done('', 'Could not load kanji that contain ' + g + '.'); });
+      }
+    });
     thread.querySelectorAll('[data-ex]').forEach(function (el) {
       loadExamples(el.getAttribute('data-ex')).then(function (rows) {
         if (gen !== askGen) return;
@@ -827,7 +1000,7 @@
     romaji: romaji,
     search: function (q) { return search(q).map(function (d) { return d.k; }); },
     store: function () { return store; },
-    ask: function (q) { var a = ask(q); return { intent: a.intent, lead: a.lead, kanji: a.kanji.map(function (d) { return d.k; }), words: a.words.map(function (w) { return { w: w.w, k: w.k, g: w.g }; }) }; },
+    ask: function (q) { var a = ask(q); return { intent: a.intent, lead: a.lead, kanji: a.kanji.map(function (d) { return d.k; }), words: a.words.map(function (w) { return { w: w.w, k: w.k, g: w.g }; }), pending: a.pending || '', glyph: a.glyph || '' }; },
     speech: function () { return SPEECH; }
   };
 })();

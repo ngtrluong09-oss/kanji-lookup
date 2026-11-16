@@ -11,6 +11,8 @@ Search by kanji (paste one or several), English meaning, romaji (`gaku`), kana (
 
 Handwriting runs in the browser. `hw.js` and `data/hw.bin` load the first time you open the pad. Shapes come from KanjiVG. Matching is stroke-order free and tolerates a few extra or missing strokes, following [KanjiCanvas](https://github.com/asdfjkl/kanjicanvas) © Dominik Klein (MIT).
 
+Each kanji page has a **Components and structure** section: a coloured diagram, where each part sits, a decomposition tree, and — only when [Kanjium](https://github.com/mifunetoshiro/kanjium) (CC BY-SA 4.0) marks a phono-semantic compound — meaning and sound labels plus a sound family. Every part is a link to `#part/…` (for example `#part/言`), with the Jōyō kanji that contain it and common JMdict words. Structure files (`data/comp/`) load with the kanji; the part page (`data/part/`) loads when you open that link. Radical names come from Kanjium’s Kangxi table. Which kanji contain a part also uses [KRADFILE/RADKFILE](https://www.edrdg.org/krad/kradinf.html) (EDRDG, CC BY-SA). The Ask tab answers “what are the parts of 語” and “which kanji share 言” from the same files.
+
 The **Ask** tab answers plain-English questions from the same dictionary (“fancy word for think”, “kanji related to water”, “reading sui”, “what does 語 mean”). It does not call a server or a language model. The thread is saved in this browser under `kanjiLookup.ask.v1` (separate from history and favorites) and can be cleared.
 
 Speaker buttons next to each on'yomi, each kun'yomi, and each example sentence use the browser’s own speech synthesis (`ja-JP` when a Japanese voice is installed). They are omitted if the browser has no speech API.
@@ -42,6 +44,8 @@ Push this folder to the root of a repository, then in **Settings → Pages** cho
 | `data/kanji.json` | 2,136 entries: meanings, readings, pinyin, Hán Việt, radical, components, grade, old JLPT level, frequency, example words |
 | `data/strokes/<hex>.json` | KanjiVG stroke paths and stroke types, one file per kanji (file name = Unicode code point in 5-digit hex) |
 | `hw.js`, `data/hw.bin` | Handwriting pad and compact KanjiVG shapes, loaded only when Write is opened |
+| `data/comp/<hex>.json` | Component tree, layout and sound/meaning labels for one kanji, loaded with the detail view |
+| `data/part/<hex>.json` | One component’s page (`#part/…`): Jōyō kanji that contain it and common words |
 | `data/ex/<hex>.json` | 1–2 example sentences, loaded on demand. `t` = Tanaka corpus, `g` = generated draft |
 
 ## Data notes and gaps

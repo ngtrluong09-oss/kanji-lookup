@@ -1,0 +1,1 @@
+{"lay":"Bottom-left surround","sum":"逐 = 豕 (pig, いのこ) + ⻌ (walk, しんにょう)","tree":[{"g":"豕","m":"pig","s":7,"i":[0,1,2,3,4,5,6],"jn":"いのこ","pos":"inside the wrap","also":["家","象","隊","劇","像","塚","豪","稼"]},{"g":"⻌","m":"walk","s":3,"i":[7,8,9],"jn":"しんにょう","pos":"wrapping underneath","rad":1,"also":["連","選","通","進","近","道","運","過"]}],"type":"Compound ideograph"}

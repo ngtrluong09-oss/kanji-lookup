@@ -1,0 +1,1 @@
+{"lay":"Top-left surround","sum":"尾 = 尸 (corpse, しかばね) + 毛 (fur)","tree":[{"g":"尸","m":"corpse","s":3,"i":[0,1,2],"jn":"しかばね","pos":"hanging from the top-left","rad":1,"also":["民","所","局","沢","展","声","戸","編"]},{"g":"毛","m":"fur","s":4,"i":[3,4,5,6],"pos":"beside the top-left","also":["尾","耗"]}],"type":"Compound ideograph"}

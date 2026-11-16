@@ -1,0 +1,1 @@
+{"lay":"Bottom-left surround","sum":"迷 = 米 (rice) + ⻌ (walk, しんにょう)","tree":[{"g":"米","m":"rice","s":6,"i":[0,1,2,3,4,5],"pos":"inside the wrap","also":["来","数","料","断","番","審","類","継"]},{"g":"⻌","m":"walk","s":3,"i":[6,7,8],"jn":"しんにょう","pos":"wrapping underneath","rad":1,"also":["連","選","通","進","近","道","運","過"]}],"type":"Compound ideograph"}

@@ -1,0 +1,1 @@
+{"lay":"Bottom-left surround","sum":"巡 = 巛 (river, かわ) + ⻌ (walk, しんにょう)","tree":[{"g":"巛","m":"river","s":3,"i":[0,1,2],"jn":"かわ","pos":"inside the wrap","rad":1,"also":["災","巡","拶"]},{"g":"⻌","m":"walk","s":3,"i":[3,4,5],"jn":"しんにょう","pos":"wrapping underneath","also":["連","選","通","進","近","道","運","過"]}],"type":"Compound ideograph"}

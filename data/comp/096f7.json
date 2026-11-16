@@ -1,0 +1,1 @@
+{"lay":"Top–bottom","sum":"雷 = 雨 (rain, あめかんむり) + 田 (rice field)","tree":[{"g":"雨","m":"rain","s":8,"i":[0,1,2,3,4,5,6,7],"jn":"あめかんむり","pos":"on top","rad":1,"also":["電","震","露","需","雪","零","雲","漏"]},{"g":"田","m":"rice field","s":5,"i":[8,9,10,11,12],"pos":"at the bottom","also":["東","戦","思","界","画","増","男","果"]}],"type":"Compound ideograph"}

@@ -1,0 +1,1 @@
+{"lay":"Top-left surround","sum":"尼 = 尸 (corpse, しかばね) + 匕 (spoon, さじ)","tree":[{"g":"尸","m":"corpse","s":3,"i":[0,1,2],"jn":"しかばね","pos":"hanging from the top-left","rad":1,"also":["民","所","局","沢","展","声","戸","編"]},{"g":"匕","m":"spoon","s":2,"i":[3,4],"jn":"さじ","pos":"beside the top-left","also":["化","七","北","指","死","能","疑","切"]}],"type":"Compound ideograph"}

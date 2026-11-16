@@ -1,0 +1,1 @@
+{"lay":"Top-left surround","sum":"尿 = 尸 (corpse, しかばね) + 水 (water)","tree":[{"g":"尸","m":"corpse","s":3,"i":[0,1,2],"jn":"しかばね","pos":"hanging from the top-left","rad":1,"also":["民","所","局","沢","展","声","戸","編"]},{"g":"水","m":"water","s":4,"i":[3,4,5,6],"pos":"beside the top-left","also":["求","藤","球","線","様","録","暴","踏"]}],"type":"Compound ideograph"}

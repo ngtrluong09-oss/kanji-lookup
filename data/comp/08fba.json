@@ -1,0 +1,1 @@
+{"lay":"Bottom-left surround","sum":"辺 = 刀 (sword) + ⻌ (walk, しんにょう)","tree":[{"g":"刀","m":"sword","s":2,"i":[0,1],"pos":"inside the wrap","also":["分","初","解","認","切","辺","券","超"]},{"g":"⻌","m":"walk","s":3,"i":[2,3,4],"jn":"しんにょう","pos":"wrapping underneath","rad":1,"also":["連","選","通","進","近","道","運","過"]}],"type":"Compound ideograph"}
