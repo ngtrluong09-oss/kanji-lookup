@@ -3,18 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kanji Lookup · Hán Việt · Pinyin</title>
-<meta name="description" content="Look up the 2,136 Jōyō kanji: stroke order, English meanings, on'yomi and kun'yomi with Mandarin pinyin and Sino-Vietnamese (Hán Việt) readings, and common example words.">
+<title>Kanji Learning · Hán Việt · Pinyin</title>
+<meta name="application-name" content="Kanji Learning">
+<meta name="apple-mobile-web-app-title" content="Kanji Learning">
+<meta name="description" content="Kanji Learning: the 2,136 Jōyō kanji, with stroke order, readings, components, a handwriting pad, and a quiz from your own history and favorites.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=6d5060c">
+<link rel="stylesheet" href="style.css?v=RELEASE">
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="logo" lang="ja">漢</span><span>Kanji Lookup</span></div>
+  <div class="brand"><span class="logo" lang="ja">漢</span><span>Kanji Learning</span></div>
   <nav class="tabs" role="tablist">
     <button class="tab active" data-view="search" role="tab">Search</button>
     <button class="tab" data-view="ask" role="tab">Ask</button>
+    <button class="tab" data-view="quiz" role="tab">Quiz</button>
     <button class="tab" data-view="history" role="tab">History</button>
     <button class="tab" data-view="favorites" role="tab">Favorites</button>
   </nav>
@@ -75,13 +78,36 @@
       <ul id="favList" class="list"></ul>
     </section>
 
-    <section class="backup">
-      <h3>Backup</h3>
-      <p class="muted small">History, favorites and groups are saved in this browser only. Export a file to keep them safe.</p>
-      <div class="row">
-        <button id="exportBtn" class="btn">Export JSON</button>
-        <label class="btn">Import JSON<input id="importFile" type="file" accept="application/json,.json" hidden></label>
+    <section id="view-quiz" class="view hidden">
+      <div class="row-between">
+        <h2>Quiz</h2>
+        <span id="quizStreak" class="muted small"></span>
       </div>
+      <div id="quizSetup">
+        <label class="small" for="quizSource">From</label>
+        <select id="quizSource" aria-label="Quiz source"></select>
+        <button id="quizStart" class="btn primary" type="button">Start round</button>
+        <p id="quizMsg" class="muted small"></p>
+      </div>
+      <div id="quizPlay" class="hidden">
+        <p id="quizProgress" class="small muted"></p>
+        <p id="quizPrompt" class="quiz-q"></p>
+        <div id="quizOptions" class="quiz-opts"></div>
+        <p id="quizFeedback"></p>
+        <button id="quizNext" class="btn primary hidden" type="button">Next</button>
+      </div>
+    </section>
+
+    <section class="backup">
+      <h3>Sync / Move to another device</h3>
+      <p class="muted small">History, favorites and groups stay together in this browser. A link or file <strong>merges</strong> with what is already here. It does not wipe this device.</p>
+      <div class="row">
+        <button id="syncLinkBtn" class="btn primary" type="button">Copy transfer link</button>
+        <button id="exportBtn" class="btn" type="button">Export JSON</button>
+        <label class="btn">Import and merge<input id="importFile" type="file" accept="application/json,.json" hidden></label>
+      </div>
+      <textarea id="syncLink" class="hidden" readonly aria-label="Transfer link"></textarea>
+      <div id="qrBox"></div>
       <p id="backupMsg" class="muted small"></p>
     </section>
   </aside>
@@ -102,7 +128,7 @@
   Visits are counted with <a href="https://www.goatcounter.com/">GoatCounter</a> without cookies or personal data.
   <span id="ownerNote" class="hidden">Owner mode.</span>
 </footer>
-<script src="app.js?v=6d5060c"></script>
+<script src="app.js?v=RELEASE"></script>
 <script>
   window.goatcounter = window.goatcounter || {};
   window.goatcounter.no_onload = true;

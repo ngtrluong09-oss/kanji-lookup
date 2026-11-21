@@ -1,4 +1,4 @@
-# Kanji Lookup — stroke order, meanings, on/kun, Pinyin and Hán Việt
+# Kanji Learning — stroke order, meanings, on/kun, Pinyin and Hán Việt
 
 A small static website for looking up the **2,136 Jōyō kanji**. For each kanji it shows:
 
@@ -19,7 +19,7 @@ Speaker buttons next to each on'yomi, each kun'yomi, and each example sentence u
 
 Example sentences (1–2 per kanji, with furigana) load when you open a kanji or an Ask card (`data/ex/<codepoint>.json`), so they are not part of the first download. Most come from the Tanaka corpus; a few rare kanji have a short draft tagged “generated”.
 
-Your **history** (auto-saved, grouped by day, up to 500 kanji), **favorites** (★) and **custom favorite groups** (create, rename, delete; a kanji can be in several groups) are stored in your browser's `localStorage` under the key `kanjiLookup.v1`. Use **Export JSON** / **Import JSON** to back them up or move them to another browser (import can replace or merge).
+Your **history** (one row per kanji, with the last time you opened it and how many times), **favorites** (★), **groups**, and quiz misses are stored together in this browser under `kanjiLookup.v1`. Nothing is dropped when the list grows. **Sync / Move to another device** copies a compressed link (and a QR code when it is short enough) or a JSON file. Opening the link or importing the file merges: history counts add up, the newer timestamp wins, and favorites and groups are united. It does not replace this device’s data. The **Quiz** tab deals 10 questions from your history and favorites.
 
 Plain HTML, CSS and vanilla JavaScript. No build step, no frameworks. Light and dark themes, works on phones.
 

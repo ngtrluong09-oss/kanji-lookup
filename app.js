@@ -1,4 +1,4 @@
-/* Kanji Lookup — vanilla JS, no build step. Data: KANJIDIC2, JMdict (EDRDG, CC BY-SA 4.0), KanjiVG (CC BY-SA 3.0). */
+/* Kanji Learning — vanilla JS, no build step. Data: KANJIDIC2, JMdict (EDRDG, CC BY-SA 4.0), KanjiVG (CC BY-SA 3.0). */
 (function () {
   'use strict';
   var ME_KEY = 'kanjiLookup.me';
@@ -43,7 +43,7 @@
   var STORE_KEY = 'kanjiLookup.v1';
   var ASK_KEY = 'kanjiLookup.ask.v1';
   var THEME_KEY = 'kanjiLookup.theme';
-  var HISTORY_CAP = 500;
+  /* One row per kanji (time + count). No cap: the full Jōyō list is 2,136 rows. */
   var $ = function (s) { return document.querySelector(s); };
   var DATA = [], BY = {}, current = null, view = 'search', favGroup = 'all';
   var strokeCache = {};
@@ -131,15 +131,18 @@
   }
 
   /* ---------- storage ---------- */
-  function emptyStore() { return { version: 1, history: [], favorites: {}, groups: [] }; }
+  function emptyStore() { return { version: 1, history: [], favorites: {}, groups: [], quiz: { miss: {}, best: 0 } }; }
   var store = loadStore();
   function loadStore() {
     try {
       var s = JSON.parse(localStorage.getItem(STORE_KEY));
       if (s && s.version === 1) {
         s.history = Array.isArray(s.history) ? s.history : [];
+        s.history.forEach(function (h) { if (h && !h.n) h.n = 1; });
         s.favorites = s.favorites && typeof s.favorites === 'object' ? s.favorites : {};
         s.groups = Array.isArray(s.groups) ? s.groups : [];
+        if (!s.quiz || typeof s.quiz !== 'object') s.quiz = { miss: {}, best: 0 };
+        if (!s.quiz.miss) s.quiz.miss = {};
         return s;
       }
     } catch (e) { /* ignore */ }
@@ -147,9 +150,9 @@
   }
   function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { alert('Could not save to this browser: ' + e.message); } }
   function addHistory(k) {
-    store.history = store.history.filter(function (h) { return h.k !== k; });
-    store.history.unshift({ k: k, t: Date.now() });
-    if (store.history.length > HISTORY_CAP) store.history.length = HISTORY_CAP;
+    var prev = null;
+    store.history = store.history.filter(function (h) { if (h.k === k) { prev = h; return false; } return true; });
+    store.history.unshift({ k: k, t: Date.now(), n: ((prev && +prev.n) || 0) + 1 });
     save();
   }
   function isFav(k) { return !!store.favorites[k]; }
@@ -457,7 +460,7 @@
       var lab = dayLabel(x.t);
       if (lab !== last) { if (last) html += '</ul>'; html += '<div class="day">' + esc(lab) + '</div><ul class="list">'; last = lab; }
       var time = new Date(x.t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      html += itemHTML(BY[x.k], '<span class="time">' + time + '</span><button class="x" data-unhist="' + x.k + '" title="Remove from history" aria-label="Remove from history">✕</button>');
+      html += itemHTML(BY[x.k], '<span class="time">' + time + ' · ×' + (x.n || 1) + '</span><button class="x" data-unhist="' + x.k + '" title="Remove from history" aria-label="Remove from history">✕</button>');
     });
     $('#historyList').innerHTML = html + '</ul>';
   }
@@ -484,10 +487,11 @@
   function showView(v) {
     view = v;
     document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-view') === v); });
-    ['search', 'history', 'favorites', 'ask'].forEach(function (n) { $('#view-' + n).classList.toggle('hidden', n !== v); });
+    ['search', 'history', 'favorites', 'ask', 'quiz'].forEach(function (n) { $('#view-' + n).classList.toggle('hidden', n !== v); });
     if (v === 'history') renderHistory();
     if (v === 'favorites') renderFavorites();
     if (v === 'ask') renderAsk();
+    if (v === 'quiz') renderQuizSetup();
   }
 
   /* ---------- strokes ---------- */
@@ -710,7 +714,7 @@
       '<div class="sec"><h3>Jōyō kanji containing ' + g + ' (' + ks.length + ')</h3>' + (kanjiHTML || '<p class="muted small">None in this dictionary.</p>') + '</div>' +
       '<div class="sec"><h3>Common words</h3>' + (wordHTML || '<p class="muted small">No common JMdict words were stored for this part.</p>') + more +
       '<p class="small muted">Words from JMdict that use a Jōyō kanji containing this part.</p></div></div>';
-    document.title = g + ' · component · Kanji Lookup';
+    document.title = g + ' · component · Kanji Learning';
   }
   function showPart(g) {
     if (!g) return;
@@ -718,7 +722,7 @@
     detailGen++;
     var gen = detailGen;
     current = null;
-    document.title = g + ' · component · Kanji Lookup';
+    document.title = g + ' · component · Kanji Learning';
     $('#detail').innerHTML = '<p class="muted">Loading ' + esc(g) + '…</p>';
     loadPart(g).then(function (p) {
       if (gen !== detailGen) return;
@@ -736,7 +740,7 @@
     if (opts.delayHistory) histTimer = setTimeout(function () { if (current === k) { addHistory(k); if (view === 'history') renderHistory(); } }, 2500);
     else if (!opts.noHistory) addHistory(k);
     if (location.hash !== '#' + encodeURIComponent(k)) history.replaceState(null, '', '#' + encodeURIComponent(k));
-    document.title = k + ' · Kanji Lookup';
+    document.title = k + ' · Kanji Learning';
     gcPage('/k/' + k, k);
     var kokuji = d.m.indexOf('(kokuji)') >= 0;
     var meanings = d.m.filter(function (m) { return m !== '(kokuji)'; });
@@ -803,33 +807,313 @@
     renderGroupsBox();
   }
 
-  /* ---------- export / import ---------- */
+  /* ---------- export / merge / transfer link ---------- */
+  var LINK_MAX = 12000, QR_MAX = 1700;
+  function bundle() {
+    return { v: 2, history: store.history, favorites: store.favorites, groups: store.groups, quiz: store.quiz || { miss: {}, best: 0 } };
+  }
+  function normHist(h) { return { k: String(h.k), t: +h.t || 0, n: Math.max(1, +h.n || 1) }; }
+  function mergeIncoming(inc) {
+    if (!inc || !Array.isArray(inc.history) || typeof inc.favorites !== 'object') throw new Error('Not a Kanji Learning backup.');
+    var addedH = 0, updatedH = 0, hmap = {};
+    store.history.forEach(function (h) { if (h && h.k) hmap[h.k] = normHist(h); });
+    inc.history.forEach(function (h) {
+      if (!h || !h.k) return;
+      var n = normHist(h), cur = hmap[n.k];
+      if (!cur) { hmap[n.k] = n; addedH++; }
+      else { cur.n += n.n; if (n.t > cur.t) cur.t = n.t; updatedH++; }
+    });
+    store.history = Object.keys(hmap).map(function (k) { return hmap[k]; }).sort(function (a, b) { return b.t - a.t; });
+    var gmap = {}, addedG = 0;
+    store.groups.forEach(function (g) { gmap[g.id] = g; });
+    (inc.groups || []).forEach(function (g) {
+      if (!g || !g.id || !g.name || gmap[g.id]) return;
+      gmap[g.id] = { id: String(g.id), name: String(g.name).slice(0, 60) };
+      addedG++;
+    });
+    store.groups = Object.keys(gmap).map(function (id) { return gmap[id]; });
+    var addedF = 0;
+    Object.keys(inc.favorites).forEach(function (k) {
+      var f = inc.favorites[k] || {}, cur = store.favorites[k];
+      if (!cur) { store.favorites[k] = { t: +f.t || Date.now(), groups: [] }; addedF++; cur = store.favorites[k]; }
+      else if ((+f.t || 0) > cur.t) cur.t = +f.t;
+      (f.groups || []).forEach(function (gid) { if (gmap[gid] && cur.groups.indexOf(gid) < 0) cur.groups.push(gid); });
+    });
+    store.quiz = store.quiz || { miss: {}, best: 0 };
+    var im = (inc.quiz && inc.quiz.miss) || {};
+    Object.keys(im).forEach(function (k) { store.quiz.miss[k] = (store.quiz.miss[k] || 0) + (+im[k] || 0); });
+    if (inc.quiz && +inc.quiz.best > (store.quiz.best || 0)) store.quiz.best = +inc.quiz.best;
+    save();
+    return { addedH: addedH, updatedH: updatedH, hist: store.history.length, addedF: addedF, fav: Object.keys(store.favorites).length, addedG: addedG, groups: store.groups.length };
+  }
+  function mergeSummary(s) {
+    return 'Merged. History +' + s.addedH + ' new, ' + s.updatedH + ' updated (' + s.hist + ' total, counts added, newer time kept). Favorites +' + s.addedF + ' (' + s.fav + '). Groups +' + s.addedG + ' (' + s.groups + ').';
+  }
   function exportData() {
-    var blob = new Blob([JSON.stringify({ app: 'kanji-lookup', exported: new Date().toISOString(), data: store }, null, 2)], { type: 'application/json' });
+    var blob = new Blob([JSON.stringify({ app: 'kanji-learning', exported: new Date().toISOString(), data: bundle() }, null, 2)], { type: 'application/json' });
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = 'kanji-lookup-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.download = 'kanji-learning-backup-' + new Date().toISOString().slice(0, 10) + '.json';
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-    $('#backupMsg').textContent = 'Exported ' + store.history.length + ' history items and ' + Object.keys(store.favorites).length + ' favorites.';
+    $('#backupMsg').textContent = 'File saved: ' + store.history.length + ' history, ' + Object.keys(store.favorites).length + ' favorites, ' + store.groups.length + ' groups.';
   }
   function importData(text) {
     var obj = JSON.parse(text), inc = obj && obj.data ? obj.data : obj;
-    if (!inc || !Array.isArray(inc.history) || typeof inc.favorites !== 'object') throw new Error('Not a Kanji Lookup backup file.');
-    var replace = confirm('Replace your current data with this file?\n\nOK = replace, Cancel = merge (keep both).');
-    if (replace) store = emptyStore();
-    var hmap = {};
-    store.history.concat(inc.history).forEach(function (h) { if (h && h.k && (!hmap[h.k] || hmap[h.k].t < h.t)) hmap[h.k] = { k: h.k, t: +h.t || Date.now() }; });
-    store.history = Object.keys(hmap).map(function (k) { return hmap[k]; }).sort(function (a, b) { return b.t - a.t; }).slice(0, HISTORY_CAP);
-    var gmap = {}; store.groups.forEach(function (g) { gmap[g.id] = g; });
-    (inc.groups || []).forEach(function (g) { if (g && g.id && g.name) gmap[g.id] = { id: String(g.id), name: String(g.name).slice(0, 60) }; });
-    store.groups = Object.keys(gmap).map(function (id) { return gmap[id]; });
-    Object.keys(inc.favorites).forEach(function (k) {
-      var f = inc.favorites[k] || {}, cur = store.favorites[k] || { t: +f.t || Date.now(), groups: [] };
-      (f.groups || []).forEach(function (g) { if (gmap[g] && cur.groups.indexOf(g) < 0) cur.groups.push(g); });
-      store.favorites[k] = cur;
-    });
-    save();
-    $('#backupMsg').textContent = 'Imported. Now ' + store.history.length + ' history items, ' + Object.keys(store.favorites).length + ' favorites, ' + store.groups.length + ' groups.';
+    var sum = mergeIncoming(inc);
+    $('#backupMsg').textContent = mergeSummary(sum);
     showView(view); refreshStars();
+    if (view === 'quiz') renderQuizSetup();
+  }
+  function bytesToB64url(bytes) {
+    var s = '', i, step = 0x8000;
+    for (i = 0; i < bytes.length; i += step) s += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlToBytes(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s), out = new Uint8Array(bin.length), i;
+    for (i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function packBundle() {
+    var encoded = new TextEncoder().encode(JSON.stringify(bundle()));
+    if (!window.CompressionStream) return Promise.resolve('0' + bytesToB64url(encoded));
+    var stream = new Blob([encoded]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Response(stream).arrayBuffer().then(function (buf) { return '1' + bytesToB64url(new Uint8Array(buf)); });
+  }
+  function unpackBundle(payload) {
+    var kind = payload.charAt(0), bytes = b64urlToBytes(payload.slice(1));
+    if (kind === '0') return Promise.resolve(JSON.parse(new TextDecoder().decode(bytes)));
+    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Response(stream).arrayBuffer().then(function (buf) { return JSON.parse(new TextDecoder().decode(buf)); });
+  }
+  function loadQrLib() {
+    if (window.qrcode) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = 'qr.js?v=' + HW_V;
+      s.onload = function () { res(); };
+      s.onerror = rej;
+      document.body.appendChild(s);
+    });
+  }
+  function showQr(url) {
+    var box = $('#qrBox'); if (!box) return;
+    loadQrLib().then(function () {
+      var qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    }).catch(function () { box.innerHTML = '<p class="muted small">QR code library could not be loaded. Use the link or the file.</p>'; });
+  }
+  function copyTransfer() {
+    packBundle().then(function (payload) {
+      var url = location.origin + location.pathname + '#sync/' + payload;
+      var box = $('#syncLink'), msg = $('#backupMsg'), qr = $('#qrBox');
+      if (url.length > LINK_MAX) {
+        if (box) box.classList.add('hidden');
+        if (qr) qr.innerHTML = '';
+        msg.textContent = 'Too big for a link (' + url.length + ' characters). Use Export JSON, then Import and merge on the other device.';
+        return;
+      }
+      if (box) { box.value = url; box.classList.remove('hidden'); box.focus(); box.select(); }
+      var copied = 'Link ready';
+      var done = function (ok) {
+        copied = ok ? 'Link copied' : 'Link is in the box (clipboard blocked)';
+        var extra = url.length > QR_MAX ? ' Too long for a reliable QR code (' + url.length + ' characters) — paste the link, or use the file.' : ' Scan the code on the other device.';
+        msg.textContent = copied + ' (' + url.length + ' characters). Opening it merges. ' + extra;
+        if (url.length <= QR_MAX) showQr(url);
+        else if (qr) qr.innerHTML = '';
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { done(true); }, function () { done(false); });
+      else done(false);
+    }).catch(function (err) { $('#backupMsg').textContent = 'Could not build a link: ' + err.message; });
+  }
+  function consumeSyncHash() {
+    var h = '';
+    try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e) { return Promise.resolve(); }
+    if (h.indexOf('sync/') !== 0) return Promise.resolve();
+    return unpackBundle(h.slice(5)).then(function (obj) {
+      var sum = mergeIncoming(obj);
+      history.replaceState(null, '', location.pathname + location.search);
+      var text = mergeSummary(sum) + ' From the transfer link.';
+      var note = $('#backupMsg'); if (note) note.textContent = text;
+    }).catch(function () {
+      var note = $('#backupMsg'); if (note) note.textContent = 'This transfer link could not be read. Export a file instead.';
+    });
+  }
+
+  /* ---------- quiz ---------- */
+  var quizRound = null;
+  function glossOf(d) {
+    var m = (d.m || []).filter(function (x) { return x && x.charAt(0) !== '('; });
+    return m[0] || '';
+  }
+  function shuffle(arr) {
+    var i, j, t;
+    for (i = arr.length - 1; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+    return arr;
+  }
+  function quizPool(which) {
+    var keys = [], seen = {};
+    if (which === 'favorites') keys = Object.keys(store.favorites);
+    else if (which === 'recent') keys = store.history.slice().sort(function (a, b) { return b.t - a.t; }).slice(0, 40).map(function (h) { return h.k; });
+    else if (which.indexOf('group:') === 0) {
+      var id = which.slice(6);
+      keys = Object.keys(store.favorites).filter(function (k) { return store.favorites[k].groups.indexOf(id) >= 0; });
+    } else {
+      store.history.forEach(function (h) { if (h && h.k) seen[h.k] = 1; });
+      Object.keys(store.favorites).forEach(function (k) { seen[k] = 1; });
+      keys = Object.keys(seen);
+    }
+    return keys.filter(function (k) { return BY[k] && glossOf(BY[k]); });
+  }
+  function pickWeighted(list, n) {
+    var pool = list.slice(), out = [], guard = 0;
+    store.quiz = store.quiz || { miss: {}, best: 0 };
+    while (out.length < n && pool.length && guard++ < 100) {
+      var weights = pool.map(function (k) { return 1 + ((store.quiz.miss && store.quiz.miss[k]) || 0) * 3; });
+      var sum = 0, i, acc = 0, r;
+      weights.forEach(function (w) { sum += w; });
+      r = Math.random() * sum;
+      for (i = 0; i < pool.length; i++) { acc += weights[i]; if (acc >= r) break; }
+      if (i >= pool.length) i = pool.length - 1;
+      out.push(pool.splice(i, 1)[0]);
+    }
+    return out;
+  }
+  function distractKanji(k, meaning) {
+    var out = [k], used = {}; used[k] = 1; used[meaning] = 1;
+    var i, d, g;
+    for (i = 0; i < DATA.length && out.length < 4; i++) {
+      d = DATA[Math.floor(Math.random() * DATA.length)];
+      g = glossOf(d);
+      if (!used[d.k] && g && g !== meaning) { used[d.k] = 1; out.push(d.k); }
+    }
+    return shuffle(out.slice(0, 4));
+  }
+  function distractGloss(d) {
+    var correct = glossOf(d), out = [correct], used = {}; used[correct] = 1;
+    var i, g;
+    for (i = 0; i < DATA.length && out.length < 4; i++) {
+      g = glossOf(DATA[Math.floor(Math.random() * DATA.length)]);
+      if (g && !used[g]) { used[g] = 1; out.push(g); }
+    }
+    return shuffle(out.slice(0, 4));
+  }
+  function readingOf(d) {
+    if (d.on && d.on.length) return d.on[0];
+    if (d.kun && d.kun.length) return cleanReading(d.kun[0]);
+    return '';
+  }
+  function distractReading(d) {
+    var correct = readingOf(d), out = [correct], used = {}; used[correct] = 1;
+    var i, r;
+    for (i = 0; i < DATA.length && out.length < 4; i++) {
+      r = readingOf(DATA[Math.floor(Math.random() * DATA.length)]);
+      if (r && !used[r]) { used[r] = 1; out.push(r); }
+    }
+    return shuffle(out.slice(0, 4));
+  }
+  function makeQuestion(k) {
+    var d = BY[k], kind = ['m2k', 'k2m', 'k2r'][Math.floor(Math.random() * 3)];
+    var prompt, choices, correct;
+    if (kind === 'm2k') {
+      correct = k;
+      prompt = 'Which kanji means “' + esc(glossOf(d)) + '”?';
+      choices = distractKanji(k, glossOf(d)).map(function (opt) { return { html: '<span class="quiz-k" lang="ja">' + opt + '</span>', ok: opt === correct }; });
+    } else if (kind === 'k2m') {
+      correct = glossOf(d);
+      prompt = '<span class="quiz-k" lang="ja">' + k + '</span> means…';
+      choices = distractGloss(d).map(function (opt) { return { html: esc(opt), ok: opt === correct }; });
+    } else {
+      correct = readingOf(d);
+      prompt = 'How do you read <span class="quiz-k" lang="ja">' + k + '</span>?';
+      choices = distractReading(d).map(function (opt) { return { html: '<span lang="ja">' + esc(opt) + '</span> <span class="muted">' + esc(romaji(cleanReading(opt))) + '</span>', ok: opt === correct }; });
+    }
+    return { k: k, prompt: prompt, choices: choices, meaning: glossOf(d), reading: readingOf(d) };
+  }
+  function renderQuizSetup() {
+    var sel = $('#quizSource'); if (!sel) return;
+    var cur = sel.value || 'all';
+    var html = '<option value="all">History and favorites</option><option value="favorites">Favorites</option><option value="recent">Recent</option>';
+    store.groups.forEach(function (g) { html += '<option value="group:' + g.id + '">' + esc(g.name) + '</option>'; });
+    sel.innerHTML = html;
+    if ([].some.call(sel.options, function (o) { return o.value === cur; })) sel.value = cur;
+    var streak = $('#quizStreak');
+    if (streak) streak.textContent = store.quiz && store.quiz.best ? 'Best streak ' + store.quiz.best : '';
+  }
+  function startQuiz() {
+    var which = ($('#quizSource') && $('#quizSource').value) || 'all';
+    var pool = quizPool(which);
+    var msg = $('#quizMsg');
+    if (pool.length < 4) {
+      if (msg) msg.textContent = 'Need at least 4 kanji. Open a few from search, or star them. This round uses ' + (which === 'favorites' ? 'favorites' : which === 'recent' ? 'recent history' : which.indexOf('group:') === 0 ? 'that group' : 'history and favorites') + ' (' + pool.length + ' so far).';
+      return;
+    }
+    if (msg) msg.textContent = '';
+    var picks = pickWeighted(pool, Math.min(10, pool.length));
+    while (picks.length < 10) picks.push(pool[Math.floor(Math.random() * pool.length)]);
+    quizRound = { items: picks.map(makeQuestion), i: 0, score: 0, streak: 0, answered: false };
+    $('#quizSetup').classList.add('hidden');
+    $('#quizPlay').classList.remove('hidden');
+    renderQuizQuestion();
+  }
+  function renderQuizQuestion() {
+    var q = quizRound.items[quizRound.i];
+    quizRound.answered = false;
+    $('#quizProgress').textContent = 'Question ' + (quizRound.i + 1) + ' of ' + quizRound.items.length + ' · score ' + quizRound.score + ' · streak ' + quizRound.streak;
+    $('#quizPrompt').innerHTML = q.prompt;
+    $('#quizOptions').innerHTML = q.choices.map(function (c, i) {
+      return '<button type="button" class="quiz-opt" data-qi="' + i + '">' + c.html + '</button>';
+    }).join('');
+    $('#quizFeedback').textContent = '';
+    $('#quizNext').classList.add('hidden');
+  }
+  function answerQuiz(idx) {
+    if (!quizRound || quizRound.answered) return;
+    var q = quizRound.items[quizRound.i];
+    var choice = q.choices[idx];
+    if (!choice) return;
+    quizRound.answered = true;
+    store.quiz = store.quiz || { miss: {}, best: 0 };
+    var ok = !!choice.ok;
+    if (ok) {
+      quizRound.score++; quizRound.streak++;
+      if (store.quiz.miss[q.k]) store.quiz.miss[q.k] = Math.max(0, store.quiz.miss[q.k] - 1);
+    } else {
+      quizRound.streak = 0;
+      store.quiz.miss[q.k] = (store.quiz.miss[q.k] || 0) + 1;
+    }
+    if (quizRound.streak > (store.quiz.best || 0)) store.quiz.best = quizRound.streak;
+    save();
+    document.querySelectorAll('.quiz-opt').forEach(function (btn, i) {
+      btn.disabled = true;
+      if (q.choices[i].ok) btn.classList.add('ok');
+      else if (i === idx) btn.classList.add('bad');
+    });
+    var read = q.reading ? ' · ' + q.reading : '';
+    $('#quizFeedback').innerHTML = (ok ? 'Yes. ' : 'Not quite. ') + '<a href="#' + encodeURIComponent(q.k) + '" lang="ja">' + q.k + '</a> means ' + esc(q.meaning) + esc(read) + '.';
+    $('#quizProgress').textContent = 'Question ' + (quizRound.i + 1) + ' of ' + quizRound.items.length + ' · score ' + quizRound.score + ' · streak ' + quizRound.streak;
+    var next = $('#quizNext');
+    next.classList.remove('hidden');
+    next.textContent = quizRound.i + 1 >= quizRound.items.length ? 'See score' : 'Next';
+  }
+  function nextQuiz() {
+    if (!quizRound) return;
+    if (quizRound.i + 1 >= quizRound.items.length) {
+      $('#quizPrompt').textContent = 'Round over';
+      $('#quizOptions').innerHTML = '';
+      $('#quizFeedback').innerHTML = 'You got <strong>' + quizRound.score + '</strong> / ' + quizRound.items.length + '. Best streak ' + (store.quiz.best || quizRound.streak) + '.';
+      $('#quizProgress').textContent = '';
+      $('#quizNext').classList.add('hidden');
+      $('#quizSetup').classList.remove('hidden');
+      renderQuizSetup();
+      quizRound = null;
+      return;
+    }
+    quizRound.i++;
+    renderQuizQuestion();
   }
 
   /* ---------- theme ---------- */
@@ -871,6 +1155,10 @@
     }
     if (t.id === 'clearAsk') { askLog = []; saveAsk(); renderAsk(); }
     if (t.id === 'exportBtn') exportData();
+    if (t.id === 'syncLinkBtn') copyTransfer();
+    if (t.id === 'quizStart') startQuiz();
+    if (t.id === 'quizNext') nextQuiz();
+    var qi = t.closest && t.closest('[data-qi]'); if (qi) { answerQuiz(+qi.getAttribute('data-qi')); return; }
     if (t.id === 'hwToggle') toggleHandwriting();
     if (t.id === 'partMore') {
       document.querySelectorAll('.part-extra').forEach(function (el) { el.classList.remove('hidden'); });
@@ -887,7 +1175,7 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = '6d5060c';
+  var HW_V = 'RELEASE';
   var hwReady = null;
   function submitSearch() {
     window.kanjiGc('/search', 'Search submitted', true);
@@ -941,6 +1229,7 @@
   function routeHash() {
     var h = '';
     try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e2) { h = location.hash.replace(/^#/, ''); }
+    if (h.indexOf('sync/') === 0) { consumeSyncHash().then(function () { showView(view); refreshStars(); }); return; }
     if (h.indexOf('part/') === 0) { showPart(h.slice(5)); return; }
     if (BY[h] && h !== current) open(h);
   }
@@ -948,9 +1237,12 @@
   window.addEventListener('storage', function (e) { if (e.key === STORE_KEY) { store = loadStore(); showView(view); refreshStars(); } });
 
   /* ---------- boot ---------- */
+  var syncReady = consumeSyncHash();
   fetch('data/kanji.json').then(function (r) { return r.json(); }).then(function (data) {
     DATA = data; buildIndex();
     renderResults();
+    return syncReady;
+  }).then(function () {
     var h = '';
     try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e2) { h = ''; }
     if (h.indexOf('part/') === 0) showPart(h.slice(5));
