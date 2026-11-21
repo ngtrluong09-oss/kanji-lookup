@@ -159,3 +159,6 @@ rt{font-size:10px;line-height:1;color:var(--muted)}
 #syncLink{width:100%;min-height:72px;margin-top:8px;font:12px/1.4 ui-monospace,monospace;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);padding:8px}
 #qrBox{margin-top:8px}
 #qrBox svg{max-width:220px;height:auto;background:#fff;padding:8px;border-radius:8px}
+.gsync{margin-bottom:8px}
+#gWho{font-weight:600;margin:0}
+#gReconnect{margin:6px 0}

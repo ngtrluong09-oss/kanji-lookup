@@ -131,41 +131,60 @@
   }
 
   /* ---------- storage ---------- */
-  function emptyStore() { return { version: 1, history: [], favorites: {}, groups: [], quiz: { miss: {}, best: 0 } }; }
+  var DEVICE_KEY = 'kanjiLookup.device';
+  var GSYNC_KEY = 'kanjiLookup.gSync';
+  var SYNC_AT_KEY = 'kanjiLookup.syncAt';
+  var pauseSync = false;
+  function deviceId() {
+    var id = '';
+    try { id = localStorage.getItem(DEVICE_KEY) || ''; } catch (e) { id = ''; }
+    if (!id) { id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); try { localStorage.setItem(DEVICE_KEY, id); } catch (e2) { /* ignore */ } }
+    return id;
+  }
+  function emptyStore() { return { version: 1, historyClearedAt: 0, history: [], favorites: {}, groups: [], quiz: { miss: {}, best: 0, missBy: {} } }; }
   var store = loadStore();
   function loadStore() {
     try {
       var s = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (s && s.version === 1) {
-        s.history = Array.isArray(s.history) ? s.history : [];
-        s.history.forEach(function (h) { if (h && !h.n) h.n = 1; });
-        s.favorites = s.favorites && typeof s.favorites === 'object' ? s.favorites : {};
-        s.groups = Array.isArray(s.groups) ? s.groups : [];
-        if (!s.quiz || typeof s.quiz !== 'object') s.quiz = { miss: {}, best: 0 };
-        if (!s.quiz.miss) s.quiz.miss = {};
-        return s;
-      }
+      if (s && typeof s === 'object') return KanjiMerge.normalizeStore(s, deviceId());
     } catch (e) { /* ignore */ }
     return emptyStore();
   }
-  function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { alert('Could not save to this browser: ' + e.message); } }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+    catch (e) { alert('Could not save to this browser: ' + e.message); }
+    if (!pauseSync) scheduleCloudSync();
+  }
+  function countBy(by) { var n = 0; Object.keys(by || {}).forEach(function (id) { n += by[id] || 0; }); return n; }
   function addHistory(k) {
-    var prev = null;
+    var prev = null, now = Date.now(), id = deviceId();
     store.history = store.history.filter(function (h) { if (h.k === k) { prev = h; return false; } return true; });
-    store.history.unshift({ k: k, t: Date.now(), n: ((prev && +prev.n) || 0) + 1 });
+    var by = {};
+    Object.keys((prev && prev.by) || {}).forEach(function (d) { by[d] = prev.by[d]; });
+    by[id] = (by[id] || 0) + 1;
+    store.history.unshift({ k: k, t: now, u: now, n: countBy(by), by: by, deleted: false });
     save();
   }
-  function isFav(k) { return !!store.favorites[k]; }
+  function isFav(k) { var f = store.favorites[k]; return !!(f && !f.deleted); }
+  function groupOn(f, gid) { return !!(f && f.groups && !Array.isArray(f.groups) && f.groups[gid] && f.groups[gid].on); }
+  function liveGroups() { return store.groups.filter(function (g) { return g && !g.deleted; }); }
   function toggleFav(k) {
-    if (isFav(k)) delete store.favorites[k];
-    else { store.favorites[k] = { t: Date.now(), groups: [] }; window.kanjiGc('/fav', 'Favorite added', true); }
+    var now = Date.now();
+    var f = store.favorites[k] ? KanjiMerge.normFav(store.favorites[k]) : { t: 0, u: 0, deleted: true, groups: {} };
+    if (!f.deleted) f.deleted = true;
+    else { f.deleted = false; f.t = now; window.kanjiGc('/fav', 'Favorite added', true); }
+    f.u = now;
+    store.favorites[k] = f;
     save(); refreshStars(); if (view === 'favorites') renderFavorites();
   }
   function setGroup(k, gid, on) {
-    if (!store.favorites[k]) store.favorites[k] = { t: Date.now(), groups: [] };
-    var g = store.favorites[k].groups.filter(function (x) { return x !== gid; });
-    if (on) g.push(gid);
-    store.favorites[k].groups = g; save(); refreshStars();
+    var now = Date.now();
+    var f = store.favorites[k] ? KanjiMerge.normFav(store.favorites[k]) : { t: now, u: 0, deleted: true, groups: {} };
+    f.groups[gid] = { on: !!on, u: now };
+    if (on) { f.deleted = false; if (!f.t) f.t = now; }
+    f.u = now;
+    store.favorites[k] = f;
+    save(); refreshStars();
   }
   function newGroupId() { return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -452,7 +471,7 @@
     return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
   }
   function renderHistory() {
-    var h = store.history.filter(function (x) { return BY[x.k]; }), html = '', last = '';
+    var h = store.history.filter(function (x) { return !x.deleted && BY[x.k]; }), html = '', last = '';
     if (!h.length) { $('#historyList').innerHTML = '<p class="muted small">Kanji you open are listed here, newest first.</p>'; $('#clearHistory').disabled = true; return; }
     $('#clearHistory').disabled = false;
     html = '';
@@ -465,17 +484,17 @@
     $('#historyList').innerHTML = html + '</ul>';
   }
   function renderFavorites() {
-    if (favGroup !== 'all' && !store.groups.some(function (g) { return g.id === favGroup; })) favGroup = 'all';
-    var favKeys = Object.keys(store.favorites).filter(function (k) { return BY[k]; });
+    if (favGroup !== 'all' && !liveGroups().some(function (g) { return g.id === favGroup; })) favGroup = 'all';
+    var favKeys = Object.keys(store.favorites).filter(function (k) { return isFav(k) && BY[k]; });
     var chips = '<button class="chip' + (favGroup === 'all' ? ' on' : '') + '" data-group="all">All (' + favKeys.length + ')</button>';
-    store.groups.forEach(function (g) {
-      var n = favKeys.filter(function (k) { return store.favorites[k].groups.indexOf(g.id) >= 0; }).length;
+    liveGroups().forEach(function (g) {
+      var n = favKeys.filter(function (k) { return groupOn(store.favorites[k], g.id); }).length;
       chips += '<button class="chip' + (favGroup === g.id ? ' on' : '') + '" data-group="' + g.id + '">' + esc(g.name) + ' (' + n + ')</button>';
     });
     $('#groupChips').innerHTML = chips;
     $('#groupActions').innerHTML = favGroup === 'all' ? '' :
       '<button class="linkbtn" id="renameGroup">Rename group</button><span class="muted">·</span><button class="linkbtn danger" id="deleteGroup">Delete group</button>';
-    var keys = favKeys.filter(function (k) { return favGroup === 'all' || store.favorites[k].groups.indexOf(favGroup) >= 0; });
+    var keys = favKeys.filter(function (k) { return favGroup === 'all' || groupOn(store.favorites[k], favGroup); });
     keys.sort(function (a, b) { return store.favorites[b].t - store.favorites[a].t; });
     $('#favList').innerHTML = keys.length ? keys.map(function (k) { return itemHTML(BY[k]); }).join('') :
       '<li class="muted small">' + (favGroup === 'all' ? 'Tap ★ on any kanji to save it here.' : 'No kanji in this group yet. Open a kanji and tick this group under its star.') + '</li>';
@@ -606,8 +625,8 @@
   function renderGroupsBox() {
     var box = $('#groupsBox'); if (!box || !current) return;
     var f = store.favorites[current];
-    var html = store.groups.map(function (g) {
-      var on = f && f.groups.indexOf(g.id) >= 0;
+    var html = liveGroups().map(function (g) {
+      var on = groupOn(f, g.id);
       return '<label><input type="checkbox" data-setgroup="' + g.id + '"' + (on ? ' checked' : '') + '> ' + esc(g.name) + '</label>';
     }).join('');
     box.innerHTML = '<div class="muted" style="margin-bottom:2px">Save to group</div>' + (html || '<div class="muted">No groups yet.</div>') +
@@ -800,7 +819,7 @@
   function createGroup(forKanji) {
     var name = (prompt('Name for the new group (e.g. "Lesson 3", "Food", "Lab words"):') || '').trim();
     if (!name) return;
-    var g = { id: newGroupId(), name: name.slice(0, 60) };
+    var g = { id: newGroupId(), name: name.slice(0, 60), u: Date.now(), deleted: false };
     store.groups.push(g); save();
     if (forKanji) setGroup(forKanji, g.id, true);
     if (view === 'favorites') renderFavorites();
@@ -810,51 +829,47 @@
   /* ---------- export / merge / transfer link ---------- */
   var LINK_MAX = 12000, QR_MAX = 1700;
   function bundle() {
-    return { v: 2, history: store.history, favorites: store.favorites, groups: store.groups, quiz: store.quiz || { miss: {}, best: 0 } };
+    return { v: 3, historyClearedAt: store.historyClearedAt || 0, history: store.history, favorites: store.favorites, groups: store.groups, quiz: store.quiz || { miss: {}, best: 0, missBy: {} } };
   }
-  function normHist(h) { return { k: String(h.k), t: +h.t || 0, n: Math.max(1, +h.n || 1) }; }
-  function mergeIncoming(inc) {
-    if (!inc || !Array.isArray(inc.history) || typeof inc.favorites !== 'object') throw new Error('Not a Kanji Learning backup.');
-    var addedH = 0, updatedH = 0, hmap = {};
-    store.history.forEach(function (h) { if (h && h.k) hmap[h.k] = normHist(h); });
-    inc.history.forEach(function (h) {
-      if (!h || !h.k) return;
-      var n = normHist(h), cur = hmap[n.k];
-      if (!cur) { hmap[n.k] = n; addedH++; }
-      else { cur.n += n.n; if (n.t > cur.t) cur.t = n.t; updatedH++; }
-    });
-    store.history = Object.keys(hmap).map(function (k) { return hmap[k]; }).sort(function (a, b) { return b.t - a.t; });
-    var gmap = {}, addedG = 0;
-    store.groups.forEach(function (g) { gmap[g.id] = g; });
-    (inc.groups || []).forEach(function (g) {
-      if (!g || !g.id || !g.name || gmap[g.id]) return;
-      gmap[g.id] = { id: String(g.id), name: String(g.name).slice(0, 60) };
-      addedG++;
-    });
-    store.groups = Object.keys(gmap).map(function (id) { return gmap[id]; });
-    var addedF = 0;
-    Object.keys(inc.favorites).forEach(function (k) {
-      var f = inc.favorites[k] || {}, cur = store.favorites[k];
-      if (!cur) { store.favorites[k] = { t: +f.t || Date.now(), groups: [] }; addedF++; cur = store.favorites[k]; }
-      else if ((+f.t || 0) > cur.t) cur.t = +f.t;
-      (f.groups || []).forEach(function (gid) { if (gmap[gid] && cur.groups.indexOf(gid) < 0) cur.groups.push(gid); });
-    });
-    store.quiz = store.quiz || { miss: {}, best: 0 };
-    var im = (inc.quiz && inc.quiz.miss) || {};
-    Object.keys(im).forEach(function (k) { store.quiz.miss[k] = (store.quiz.miss[k] || 0) + (+im[k] || 0); });
-    if (inc.quiz && +inc.quiz.best > (store.quiz.best || 0)) store.quiz.best = +inc.quiz.best;
+  function visibleSnap() {
+    return {
+      h: store.history.filter(function (h) { return h && !h.deleted; }).map(function (h) { return h.k; }),
+      f: Object.keys(store.favorites).filter(isFav),
+      g: liveGroups().map(function (g) { return g.id; })
+    };
+  }
+  function replaceStore(next) {
+    pauseSync = true;
+    store = next;
     save();
-    return { addedH: addedH, updatedH: updatedH, hist: store.history.length, addedF: addedF, fav: Object.keys(store.favorites).length, addedG: addedG, groups: store.groups.length };
+    pauseSync = false;
+    refreshStars();
+    if (view === 'history') renderHistory();
+    if (view === 'favorites') renderFavorites();
+    if (view === 'quiz') renderQuizSetup();
+  }
+  function mergeIncoming(inc) {
+    if (!inc || typeof inc !== 'object') throw new Error('Not a Kanji Learning backup.');
+    var lib = inc.data && typeof inc.data === 'object' ? inc.data : inc;
+    if (!Array.isArray(lib.history) || typeof lib.favorites !== 'object') throw new Error('Not a Kanji Learning backup.');
+    var before = visibleSnap();
+    var next = KanjiMerge.mergeState(store, lib);
+    replaceStore(next);
+    scheduleCloudSync();
+    var after = visibleSnap();
+    function added(a, b) { return b.filter(function (k) { return a.indexOf(k) < 0; }).length; }
+    return { addedH: added(before.h, after.h), hist: after.h.length, addedF: added(before.f, after.f), fav: after.f.length, addedG: added(before.g, after.g), groups: after.g.length };
   }
   function mergeSummary(s) {
-    return 'Merged. History +' + s.addedH + ' new, ' + s.updatedH + ' updated (' + s.hist + ' total, counts added, newer time kept). Favorites +' + s.addedF + ' (' + s.fav + '). Groups +' + s.addedG + ' (' + s.groups + ').';
+    return 'Merged. History +' + s.addedH + ' new (' + s.hist + ' visible). Favorites +' + s.addedF + ' (' + s.fav + '). Groups +' + s.addedG + ' (' + s.groups + '). Importing the same data again does not double counts.';
   }
   function exportData() {
     var blob = new Blob([JSON.stringify({ app: 'kanji-learning', exported: new Date().toISOString(), data: bundle() }, null, 2)], { type: 'application/json' });
     var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = 'kanji-learning-backup-' + new Date().toISOString().slice(0, 10) + '.json';
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-    $('#backupMsg').textContent = 'File saved: ' + store.history.length + ' history, ' + Object.keys(store.favorites).length + ' favorites, ' + store.groups.length + ' groups.';
+    var snap = visibleSnap();
+    $('#backupMsg').textContent = 'File saved: ' + snap.h.length + ' history, ' + snap.f.length + ' favorites, ' + snap.g.length + ' groups.';
   }
   function importData(text) {
     var obj = JSON.parse(text), inc = obj && obj.data ? obj.data : obj;
@@ -957,13 +972,13 @@
   function quizPool(which) {
     var keys = [], seen = {};
     if (which === 'favorites') keys = Object.keys(store.favorites);
-    else if (which === 'recent') keys = store.history.slice().sort(function (a, b) { return b.t - a.t; }).slice(0, 40).map(function (h) { return h.k; });
+    else if (which === 'recent') keys = store.history.filter(function (h) { return !h.deleted; }).slice().sort(function (a, b) { return b.t - a.t; }).slice(0, 40).map(function (h) { return h.k; });
     else if (which.indexOf('group:') === 0) {
       var id = which.slice(6);
-      keys = Object.keys(store.favorites).filter(function (k) { return store.favorites[k].groups.indexOf(id) >= 0; });
+      keys = Object.keys(store.favorites).filter(function (k) { return isFav(k) && groupOn(store.favorites[k], id); });
     } else {
-      store.history.forEach(function (h) { if (h && h.k) seen[h.k] = 1; });
-      Object.keys(store.favorites).forEach(function (k) { seen[k] = 1; });
+      store.history.forEach(function (h) { if (h && h.k && !h.deleted) seen[h.k] = 1; });
+      Object.keys(store.favorites).forEach(function (k) { if (isFav(k)) seen[k] = 1; });
       keys = Object.keys(seen);
     }
     return keys.filter(function (k) { return BY[k] && glossOf(BY[k]); });
@@ -1037,7 +1052,7 @@
     var sel = $('#quizSource'); if (!sel) return;
     var cur = sel.value || 'all';
     var html = '<option value="all">History and favorites</option><option value="favorites">Favorites</option><option value="recent">Recent</option>';
-    store.groups.forEach(function (g) { html += '<option value="group:' + g.id + '">' + esc(g.name) + '</option>'; });
+    liveGroups().forEach(function (g) { html += '<option value="group:' + g.id + '">' + esc(g.name) + '</option>'; });
     sel.innerHTML = html;
     if ([].some.call(sel.options, function (o) { return o.value === cur; })) sel.value = cur;
     var streak = $('#quizStreak');
@@ -1076,15 +1091,18 @@
     var choice = q.choices[idx];
     if (!choice) return;
     quizRound.answered = true;
-    store.quiz = store.quiz || { miss: {}, best: 0 };
+    store.quiz = store.quiz || { miss: {}, best: 0, missBy: {} };
     var ok = !!choice.ok;
-    if (ok) {
-      quizRound.score++; quizRound.streak++;
-      if (store.quiz.miss[q.k]) store.quiz.miss[q.k] = Math.max(0, store.quiz.miss[q.k] - 1);
-    } else {
-      quizRound.streak = 0;
-      store.quiz.miss[q.k] = (store.quiz.miss[q.k] || 0) + 1;
-    }
+    if (ok) { quizRound.score++; quizRound.streak++; }
+    else quizRound.streak = 0;
+    var id = deviceId();
+    store.quiz.missBy = store.quiz.missBy || {};
+    store.quiz.missBy[q.k] = store.quiz.missBy[q.k] || {};
+    var cell = store.quiz.missBy[q.k][id] || { p: 0, n: 0 };
+    if (ok) cell.n += 1; else cell.p += 1;
+    store.quiz.missBy[q.k][id] = cell;
+    var total = KanjiMerge.missTotal(store.quiz.missBy[q.k]);
+    if (total) store.quiz.miss[q.k] = total; else delete store.quiz.miss[q.k];
     if (quizRound.streak > (store.quiz.best || 0)) store.quiz.best = quizRound.streak;
     save();
     document.querySelectorAll('.quiz-opt').forEach(function (btn, i) {
@@ -1130,7 +1148,7 @@
     var spk = t.closest('.speak'); if (spk) { e.stopPropagation(); e.preventDefault(); toggleSpeak(spk); return; }
     var hint = t.closest('[data-ask]'); if (hint) { submitAsk(hint.getAttribute('data-ask')); return; }
     var star = t.closest('[data-star]'); if (star) { e.stopPropagation(); toggleFav(star.getAttribute('data-star')); return; }
-    var un = t.closest('[data-unhist]'); if (un) { e.stopPropagation(); var k = un.getAttribute('data-unhist'); store.history = store.history.filter(function (h) { return h.k !== k; }); save(); renderHistory(); return; }
+    var un = t.closest('[data-unhist]'); if (un) { e.stopPropagation(); var hk = un.getAttribute('data-unhist'); store.history.forEach(function (h) { if (h.k === hk) { h.deleted = true; h.u = Date.now(); } }); save(); renderHistory(); return; }
     var ng = t.closest('[data-newgroup-for]'); if (ng) { createGroup(ng.getAttribute('data-newgroup-for')); return; }
     var chip = t.closest('[data-group]'); if (chip) { favGroup = chip.getAttribute('data-group'); renderFavorites(); return; }
     var tab = t.closest('.tab'); if (tab) { showView(tab.getAttribute('data-view')); return; }
@@ -1140,19 +1158,33 @@
     if (t.id === 'renameGroup') {
       var g = store.groups.filter(function (x) { return x.id === favGroup; })[0];
       var nm = g && (prompt('Rename group:', g.name) || '').trim();
-      if (nm) { g.name = nm.slice(0, 60); save(); renderFavorites(); renderGroupsBox(); }
+      if (nm) { g.name = nm.slice(0, 60); g.u = Date.now(); save(); renderFavorites(); renderGroupsBox(); }
     }
     if (t.id === 'deleteGroup') {
       var g2 = store.groups.filter(function (x) { return x.id === favGroup; })[0];
       if (g2 && confirm('Delete the group "' + g2.name + '"? The kanji stay in your favorites.')) {
-        store.groups = store.groups.filter(function (x) { return x.id !== g2.id; });
-        Object.keys(store.favorites).forEach(function (k) { store.favorites[k].groups = store.favorites[k].groups.filter(function (x) { return x !== g2.id; }); });
+        var nowG = Date.now();
+        g2.deleted = true; g2.u = nowG;
+        Object.keys(store.favorites).forEach(function (k) {
+          var f = store.favorites[k];
+          if (f && f.groups && !Array.isArray(f.groups) && f.groups[g2.id]) f.groups[g2.id] = { on: false, u: nowG };
+        });
         favGroup = 'all'; save(); renderFavorites(); renderGroupsBox();
       }
     }
     if (t.id === 'clearHistory') {
-      if (store.history.length && confirm('Clear all ' + store.history.length + ' history items? This cannot be undone (export a backup first if unsure).')) { store.history = []; save(); renderHistory(); }
+      var nHist = store.history.filter(function (h) { return !h.deleted; }).length;
+      if (nHist && confirm('Clear all ' + nHist + ' history items? This cannot be undone (export a backup first if unsure).')) {
+        var nowC = Date.now();
+        store.historyClearedAt = nowC;
+        store.history.forEach(function (h) { h.deleted = true; h.u = nowC; });
+        save(); renderHistory();
+      }
     }
+    if (t.id === 'gSignIn') signInGoogle();
+    if (t.id === 'gSyncNow') { clearTimeout(syncTimer); syncNow(false); }
+    if (t.id === 'gSignOut') signOutGoogle();
+    if (t.id === 'gReconnectBtn') { clearTimeout(syncTimer); syncNow(true); }
     if (t.id === 'clearAsk') { askLog = []; saveAsk(); renderAsk(); }
     if (t.id === 'exportBtn') exportData();
     if (t.id === 'syncLinkBtn') copyTransfer();
@@ -1175,7 +1207,7 @@
       fr.readAsText(t.files[0]);
     }
   });
-  var HW_V = '2782fa3';
+  var HW_V = 'RELEASE';
   var hwReady = null;
   function submitSearch() {
     window.kanjiGc('/search', 'Search submitted', true);
@@ -1226,6 +1258,184 @@
     submitSearch();
   });
   var deb; $('#q').addEventListener('input', function () { clearTimeout(deb); deb = setTimeout(renderResults, 120); });
+  /* ---------- Google Drive appData sync ---------- */
+  var GIS_CLIENT = '562520675126-r759u3od5k0ujnaotj6j5n5saqlv5goh.apps.googleusercontent.com';
+  var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  var DRIVE_FILE = 'kanji-learning-library.json';
+  var SYNC_DEBOUNCE = 5000;
+  var tokenClient = null, gToken = null, syncTimer = null, syncing = false, syncAgain = false, driveFileId = '';
+  function setGStatus(text) { var el = $('#gStatus'); if (el) el.textContent = text || ''; }
+  function showReconnect(on) { var el = $('#gReconnect'); if (el) el.classList.toggle('hidden', !on); }
+  function optedIn() { try { return localStorage.getItem(GSYNC_KEY) === '1'; } catch (e) { return false; } }
+  function renderGSync() {
+    var on = optedIn();
+    var sign = $('#gSignIn'), box = $('#gSigned'), who = $('#gWho'), when = $('#gWhen');
+    if (sign) sign.classList.toggle('hidden', on);
+    if (box) box.classList.toggle('hidden', !on);
+    if (who) who.textContent = 'Signed in';
+    var at = 0;
+    try { at = +localStorage.getItem(SYNC_AT_KEY) || 0; } catch (e2) { at = 0; }
+    if (when) when.textContent = at ? 'Last synced ' + new Date(at).toLocaleString() : 'Not synced yet';
+  }
+  function scheduleCloudSync() {
+    if (!optedIn()) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setGStatus('Offline. Changes stay on this device until you are back online.');
+      return;
+    }
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () { syncNow(false); }, SYNC_DEBOUNCE);
+  }
+  function initTokenClient() {
+    if (tokenClient || !window.google || !google.accounts || !google.accounts.oauth2) return;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GIS_CLIENT,
+      scope: DRIVE_SCOPE,
+      callback: function () {},
+      error_callback: function () {}
+    });
+  }
+  function whenGis() {
+    return new Promise(function (resolve, reject) {
+      var n = 0;
+      (function tick() {
+        initTokenClient();
+        if (tokenClient) { resolve(); return; }
+        if (n++ > 40) { reject(new Error('Google sign-in did not load.')); return; }
+        setTimeout(tick, 250);
+      })();
+    });
+  }
+  function needsInteraction(err) {
+    var t = err ? String(err.error || err.type || err.message || '') : '';
+    return /interaction_required|consent_required|login_required|popup_closed|popup_failed|access_denied/i.test(t);
+  }
+  function ensureToken(interactive) {
+    if (gToken && gToken.expiresAt - Date.now() > 60000) return Promise.resolve(gToken.access_token);
+    return whenGis().then(function () {
+      return new Promise(function (resolve, reject) {
+        var settled = false;
+        function finish(err, token) { if (settled) return; settled = true; if (err) reject(err); else resolve(token); }
+        tokenClient.callback = function (resp) {
+          if (resp && resp.access_token) {
+            gToken = { access_token: resp.access_token, expiresAt: Date.now() + ((+resp.expires_in || 3600) * 1000) };
+            finish(null, resp.access_token);
+          } else finish(resp || { error: 'interaction_required' });
+        };
+        tokenClient.error_callback = function (err) { finish(err || { error: 'interaction_required' }); };
+        try { tokenClient.requestAccessToken({ prompt: interactive ? 'consent' : '' }); }
+        catch (e) { finish(e); }
+      });
+    });
+  }
+  function driveFetch(token, url, opts) {
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    opts.headers.Authorization = 'Bearer ' + token;
+    return fetch(url, opts).then(function (r) {
+      if (r.status === 401) { gToken = null; var err = new Error('unauthorized'); err.status = 401; throw err; }
+      if (!r.ok) return r.text().then(function (t) { var err = new Error('Drive error ' + r.status); err.status = r.status; throw err; });
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('json') >= 0) return r.json();
+      return r.text();
+    });
+  }
+  function listDriveFile(token) {
+    var q = encodeURIComponent("name = '" + DRIVE_FILE + "' and trashed = false");
+    return driveFetch(token, 'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name)&q=' + q).then(function (data) {
+      var files = (data && data.files) || [];
+      return files.length ? files[0].id : '';
+    });
+  }
+  function createDrive(token, json) {
+    var boundary = 'kanji_sync_boundary';
+    var meta = JSON.stringify({ name: DRIVE_FILE, parents: ['appDataFolder'] });
+    var body = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+      '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + json + '\r\n--' + boundary + '--';
+    return driveFetch(token, 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+      body: body
+    }).then(function (file) { return file && file.id; });
+  }
+  function updateDrive(token, id, json) {
+    return driveFetch(token, 'https://www.googleapis.com/upload/drive/v3/files/' + encodeURIComponent(id) + '?uploadType=media', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: json
+    });
+  }
+  function pullAndPush(token) {
+    var remote = null;
+    return listDriveFile(token).then(function (id) {
+      driveFileId = id || '';
+      if (!id) return null;
+      return driveFetch(token, 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) + '?alt=media').then(function (body) {
+        remote = typeof body === 'string' ? JSON.parse(body) : body;
+        if (remote && !KanjiMerge.sameLibrary(remote, bundle())) replaceStore(KanjiMerge.mergeState(store, remote));
+      });
+    }).then(function () {
+      var json = JSON.stringify(bundle());
+      if (remote && KanjiMerge.sameLibrary(remote, bundle())) return null;
+      if (!driveFileId) return createDrive(token, json).then(function (id) { driveFileId = id || ''; });
+      return updateDrive(token, driveFileId, json);
+    });
+  }
+  function syncNow(interactive) {
+    if (!optedIn() && !interactive) return Promise.resolve();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setGStatus('Offline. Changes stay on this device until you are back online.');
+      return Promise.resolve();
+    }
+    if (syncing) { syncAgain = true; return Promise.resolve(); }
+    syncing = true;
+    setGStatus('Syncing…');
+    function attempt(token) { return pullAndPush(token); }
+    return ensureToken(!!interactive).then(attempt).catch(function (err) {
+      if (err && err.status === 401) { gToken = null; return ensureToken(false).then(attempt); }
+      throw err;
+    }).then(function () {
+      try { localStorage.setItem(SYNC_AT_KEY, String(Date.now())); } catch (e) { /* ignore */ }
+      showReconnect(false);
+      renderGSync();
+      setGStatus('Synced.');
+    }).catch(function (err) {
+      if (needsInteraction(err)) { showReconnect(true); setGStatus('Saved on this device. Sync needs a quick reconnect.'); }
+      else setGStatus('Saved on this device. Sync will retry.' + (err && err.message ? ' ' + err.message : ''));
+    }).then(function () {
+      syncing = false;
+      if (syncAgain) { syncAgain = false; return syncNow(false); }
+    });
+  }
+  function signInGoogle() {
+    setGStatus('Opening Google…');
+    showReconnect(false);
+    ensureToken(true).then(function () {
+      try { localStorage.setItem(GSYNC_KEY, '1'); } catch (e) { /* ignore */ }
+      renderGSync();
+      return syncNow(false);
+    }).catch(function (err) {
+      if (needsInteraction(err)) setGStatus('Sign-in was cancelled. Your library stays on this device.');
+      else setGStatus((err && err.message) || 'Could not sign in. Your library stays on this device.');
+    });
+  }
+  function signOutGoogle() {
+    var token = gToken && gToken.access_token;
+    gToken = null;
+    driveFileId = '';
+    clearTimeout(syncTimer);
+    try { localStorage.removeItem(GSYNC_KEY); } catch (e) { /* ignore */ }
+    showReconnect(false);
+    renderGSync();
+    setGStatus('Signed out. This device keeps its copy.');
+    if (token && window.google && google.accounts && google.accounts.oauth2 && google.accounts.oauth2.revoke) {
+      try { google.accounts.oauth2.revoke(token, function () {}); } catch (e2) { /* ignore */ }
+    }
+  }
+  renderGSync();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') syncNow(false); });
+  window.addEventListener('online', function () { syncNow(false); });
+
   function routeHash() {
     var h = '';
     try { h = decodeURIComponent(location.hash.replace(/^#/, '')); } catch (e2) { h = location.hash.replace(/^#/, ''); }
@@ -1248,6 +1458,7 @@
     if (h.indexOf('part/') === 0) showPart(h.slice(5));
     else if (BY[h]) open(h);
     else open('学', { noHistory: true });
+    if (optedIn()) syncNow(false);
   }).catch(function (e) { $('#detail').innerHTML = '<p>Could not load data/kanji.json (' + esc(e.message) + '). If you opened the file directly, serve the folder over http (e.g. GitHub Pages or <code>python3 -m http.server</code>).</p>'; });
 
   /* ---------- ask thread ---------- */
@@ -1337,6 +1548,8 @@
     romaji: romaji,
     search: function (q) { return search(q).map(function (d) { return d.k; }); },
     store: function () { return store; },
+    mergeState: function (local, incoming) { return KanjiMerge.mergeState(local, incoming); },
+    syncNow: function (interactive) { return syncNow(!!interactive); },
     ask: function (q) { var a = ask(q); return { intent: a.intent, lead: a.lead, kanji: a.kanji.map(function (d) { return d.k; }), words: a.words.map(function (w) { return { w: w.w, k: w.k, g: w.g }; }), pending: a.pending || '', glyph: a.glyph || '' }; },
     speech: function () { return SPEECH; }
   };

@@ -9,7 +9,7 @@
 <meta name="description" content="Kanji Learning: the 2,136 Jōyō kanji, with stroke order, readings, components, a handwriting pad, and a quiz from your own history and favorites.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=2782fa3">
+<link rel="stylesheet" href="style.css?v=RELEASE">
 </head>
 <body>
 <header class="top">
@@ -100,9 +100,22 @@
 
     <section class="backup">
       <h3>Sync / Move to another device</h3>
-      <p class="muted small">History, favorites and groups stay together in this browser. A link or file <strong>merges</strong> with what is already here. It does not wipe this device.</p>
+      <div id="gSync" class="gsync">
+        <button id="gSignIn" class="btn primary" type="button">Sign in with Google to sync</button>
+        <div id="gSigned" class="hidden">
+          <p id="gWho" class="small">Signed in</p>
+          <p id="gWhen" class="muted small"></p>
+          <div class="row">
+            <button id="gSyncNow" class="btn" type="button">Sync now</button>
+            <button id="gSignOut" class="btn" type="button">Sign out</button>
+          </div>
+        </div>
+        <p id="gReconnect" class="hidden small">Sync paused. <button id="gReconnectBtn" class="linkbtn" type="button">Reconnect sync</button></p>
+        <p id="gStatus" class="muted small"></p>
+      </div>
+      <p class="muted small">Sign-in stores this library in your Google Drive app data folder (hidden from your files). A link or file still works without an account, and always <strong>merges</strong>.</p>
       <div class="row">
-        <button id="syncLinkBtn" class="btn primary" type="button">Copy transfer link</button>
+        <button id="syncLinkBtn" class="btn" type="button">Copy transfer link</button>
         <button id="exportBtn" class="btn" type="button">Export JSON</button>
         <label class="btn">Import and merge<input id="importFile" type="file" accept="application/json,.json" hidden></label>
       </div>
@@ -126,9 +139,12 @@
   Components from KanjiVG, <a href="https://www.edrdg.org/krad/kradinf.html">KRADFILE/RADKFILE</a> (EDRDG),
   and <a href="https://github.com/mifunetoshiro/kanjium">Kanjium</a> radical names and phonetic labels (CC BY-SA 4.0). See README for details.
   Visits are counted with <a href="https://www.goatcounter.com/">GoatCounter</a> without cookies or personal data.
+  If you sign in, history, favorites, groups and quiz misses are saved in your own Google Drive app data folder.
   <span id="ownerNote" class="hidden">Owner mode.</span>
 </footer>
-<script src="app.js?v=2782fa3"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="sync-merge.js?v=RELEASE"></script>
+<script src="app.js?v=RELEASE"></script>
 <script>
   window.goatcounter = window.goatcounter || {};
   window.goatcounter.no_onload = true;

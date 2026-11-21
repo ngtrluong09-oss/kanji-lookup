@@ -19,7 +19,7 @@ Speaker buttons next to each on'yomi, each kun'yomi, and each example sentence u
 
 Example sentences (1–2 per kanji, with furigana) load when you open a kanji or an Ask card (`data/ex/<codepoint>.json`), so they are not part of the first download. Most come from the Tanaka corpus; a few rare kanji have a short draft tagged “generated”.
 
-Your **history** (one row per kanji, with the last time you opened it and how many times), **favorites** (★), **groups**, and quiz misses are stored together in this browser under `kanjiLookup.v1`. Nothing is dropped when the list grows. **Sync / Move to another device** copies a compressed link (and a QR code when it is short enough) or a JSON file. Opening the link or importing the file merges: history counts add up, the newer timestamp wins, and favorites and groups are united. It does not replace this device’s data. The **Quiz** tab deals 10 questions from your history and favorites.
+Your **history** (one row per kanji, with the last time you opened it and how many times), **favorites** (★), **groups**, and quiz misses are stored together in this browser under `kanjiLookup.v1`. Nothing is dropped when the list grows. **Sign in with Google** keeps that library in your own Drive app data folder (`drive.appdata` only; there is no app server). Sync merges and is safe to repeat: each device keeps its own lookup count, and removals travel as tombstones. The transfer link, QR code, and JSON file are still there if you do not sign in. The **Quiz** tab deals 10 questions from your history and favorites.
 
 Plain HTML, CSS and vanilla JavaScript. No build step, no frameworks. Light and dark themes, works on phones.
 
